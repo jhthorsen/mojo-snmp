@@ -1,0 +1,84 @@
+NAME
+    Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
+
+SYNOPSIS
+        use Mojo::SNMP;
+        my $snmp = Mojo::SNMP->new;
+
+        $snmp->on(response => sub {
+            my($host, $error, $res) = @_;
+        });
+
+        $snmp->add('127.0.0.1', get => ['1.2.3']);
+        $snmp->start;
+
+DESCRIPTION
+    This module use Net::SNMP to fetch data from hosts asynchronous.
+
+EVENTS
+  response
+        $self->on(response => sub {
+            my($self, $host, $res) = @_;
+        });
+
+    Called each time a host responds or timeout. $res will be a hash ref on
+    success and a plain string on error.
+
+  finish
+        $self->on(finish => sub {
+            my $self = shift;
+        });
+
+    Emitted when all hosts has timed out or completed.
+
+  timeout
+        $self->on(timeout => sub {
+            my $self = shift;
+        })
+
+    This method is called if the "timeout" attribute is set and time has is
+    passed.
+
+ATTRIBUTES
+  concurrent
+    How many hosts to fetch data from at once. Default is 20.
+
+  timeout
+    How long to run in total before timeout. Note: This is NOT pr host but
+    for complete run. Default is 0, meaning run for as long as you have to.
+
+  ioloop
+    Holds an instance of Mojo::IOLoop.
+
+METHODS
+  add
+        $self = $self->add($host, \%args, ...);
+        $self = $self->add(\@hosts, \%args, ...);
+
+    *   host
+
+    *   args
+
+    *   get
+
+    *   getnext
+
+    *   walk
+
+    *   set
+
+  run
+    This is an alternative to "start" if you want to block in your code:
+    "run()" starts the ioloop and runs until "timeout" or "finish" is
+    reached.
+
+  start
+        $self = $self->start;
+
+    Will prepare the ioloop to send and receive data to the hosts prepared
+    with "add". This ioloop will abort the job if "timeout" is set and time
+    the time has past.
+
+AUTHOR
+    Jan Henning Thorsen - jhthorsen@cpan.org
+
