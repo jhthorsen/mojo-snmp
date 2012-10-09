@@ -15,7 +15,7 @@ $snmp->on(finish => sub {
 });
 
 $snmp->add('127.0.0.1', get => ['1.2.3']);
-$snmp->run;
+$snmp->wait;
 
 is $finish, 1, 'finish event was emitted';
 

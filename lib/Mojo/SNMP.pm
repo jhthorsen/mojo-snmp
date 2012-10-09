@@ -26,13 +26,13 @@ use Mojo::Base 'Mojo::EventEmitter';
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 1;
 use Mojo::IOLoop;
 use Scalar::Util;
-use Net::SNMP;
+use Net::SNMP ();
 
 my %NET_SNMP_ARGS = (
     version => '2c',
     community => 'public',
-    timeout => 1e6,
-    retries => 2,
+    timeout => 1,
+    retries => 0,
 );
 
 =head1 EVENTS
@@ -93,6 +93,7 @@ has _tid => 0;
 
     $self = $self->add($host, \%args, ...);
     $self = $self->add(\@hosts, \%args, ...);
+    $self = $self->add(all => ...);
 
 =over 4
 
@@ -120,7 +121,7 @@ sub add {
     $hosts = [ keys %{ $self->_pool } ] if $hosts->[0] eq 'all';
 
     for my $host (@$hosts) {
-        $self->_pool->{$host} ||= $self->_new_session($host, $args->{args});
+        $self->_pool->{$host} ||= $self->_new_session($host, $args);
 
         local @_ = @_;
         while(@_) {
@@ -135,7 +136,9 @@ sub add {
 
 sub _new_session {
     my $args = $_[2]->{args} || { %NET_SNMP_ARGS };
-    Net::SNMP->session(hostname => $_[1], %$args);
+    my($session, $error) = Net::SNMP->session(hostname => $_[1], %$args);
+    die $error unless $session;
+    return $session;
 }
 
 sub _id {
@@ -152,32 +155,6 @@ sub _id {
             username
         /
     );
-}
-
-=head2 run
-
-This is an alternative to L</start> if you want to block in your code:
-C<run()> starts the ioloop and runs until L</timeout> or L</finish> is
-reached.
-
-=cut
-
-sub run {
-    my $self = shift;
-    my $ioloop = $self->ioloop;
-    my $stop;
-
-    $stop = sub {
-        $_[0]->unsubscribe(finish => $stop);
-        $_[0]->unsubscribe(timeout => $stop);
-        $ioloop->stop;
-    };
-
-    $self->once(finish => $stop);
-    $self->once(timeout => $stop);
-    $self->start;
-    $ioloop->start;
-    $self;
 }
 
 =head2 start
@@ -198,40 +175,72 @@ sub start {
     my $tid;
 
     warn "[SNMP] Gather information from " .int(keys %{ $self->_pool }) ." hosts\n" if DEBUG;
-    $snmp or return $self->emit_safe('finish');
 
-    $tid = $ioloop->recurring(0 => sub {
+    unless($snmp and @{ $self->_queue }) {
+        $self->emit_safe('finish');
+        return $self;
+    }
+
+    $tid = $ioloop->recurring(0.01, sub {
         if($timeout and $timeout < time) {
             $ioloop->remove($tid);
-            $self->safe_emit('timeout');
+            $self->emit_safe('timeout');
         }
-        elsif($snmp->snmp_dispatch_once) {
+        elsif(!$snmp->snmp_dispatch_once) {
             $ioloop->remove($tid);
-            $self->safe_emit('finish');
+            $self->emit_safe('finish');
         }
     });
 
     $self->{_current} ||= 0;
-    $self->_start_requests;
+    $self->_start_request for $self->{_current} .. $self->concurrent;
     $self;
 }
 
-sub _start_requests {
+sub _start_request {
     my $self = shift;
+    my $item = shift @{ $self->_queue } or return;
+    my($host, $action, $varbindlist) = @$item;
+    my $session = $self->_pool->{$host};
 
+    warn "[SNMP] $action(@$varbindlist) from $host\n" if DEBUG;
     Scalar::Util::weaken($self);
-    for($self->{_current} .. $self->concurrent) {
-        my $action = shift @{ $self->_queue };
-        my $session = $self->_pool->{ $action->[0] };
+    $session->${ \ "$action\_request" }(
+        varbindlist => $varbindlist,
+        callback => sub {
+            $self->emit(response => $host, @_);
+            $self->_start_requests;
+            $self->emit('finish') unless --$self->{_current};
+        },
+    );
 
-        warn "[SNMP] Gather @{$action->[1]} from $action->[0]\n" if DEBUG;
-        $session->${ \ $action ."_request" }(
-            varbindlist => $action->[1],
-            callback => sub {
-                $self->emit(response => $action->[0], @_);
-            },
-        );
-    }
+    $self->{_current}++;
+}
+
+=head2 wait
+
+This is an alternative to L</start> if you want to block in your code:
+C<wait()> starts the ioloop and runs until L</timeout> or L</finish> is
+reached.
+
+=cut
+
+sub wait {
+    my $self = shift;
+    my $ioloop = $self->ioloop;
+    my $stop;
+
+    $stop = sub {
+        $_[0]->unsubscribe(finish => $stop);
+        $_[0]->unsubscribe(timeout => $stop);
+        $ioloop->stop;
+    };
+
+    $self->once(finish => $stop);
+    $self->once(timeout => $stop);
+    $self->start;
+    $ioloop->start;
+    $self;
 }
 
 =head1 AUTHOR
