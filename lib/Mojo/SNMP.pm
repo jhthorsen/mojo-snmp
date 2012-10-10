@@ -13,7 +13,7 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
         my($host, $session) = @_;
     });
 
-    $snmp->add('127.0.0.1', get => ['1.2.3']);
+    $snmp->prepare('127.0.0.1', get => ['1.2.3']);
     $snmp->wait;
 
 =head1 DESCRIPTION
@@ -99,11 +99,11 @@ has _queue => sub { +[] };
 
 =head1 METHODS
 
-=head2 add
+=head2 prepare
 
-    $self = $self->add($host, \%args, ...);
-    $self = $self->add(\@hosts, \%args, ...);
-    $self = $self->add(all => \%args, ...);
+    $self = $self->prepare($host, \%args, ...);
+    $self = $self->prepare(\@hosts, \%args, ...);
+    $self = $self->prepare(all => \%args, ...);
 
 =over 4
 
@@ -121,20 +121,20 @@ directly to L<Net::SNMP/session>. This argument is optional.
 
 =item * dot-dot-dot
 
-The list of arguments given to L</add> should be a key value pair of SNMP
+The list of arguments given to L</prepare> should be a key value pair of SNMP
 operations and bindlists to act on.
 
 Example:
 
-    $self->add('192.168.0.1' => walk => [$oid, ...]);
-    $self->add(localhost => set => { $oid => $value, ... });
-    $self->add(all => { community => 's3cret' }, get => [$oid, ...]);
+    $self->prepare('192.168.0.1' => walk => [$oid, ...]);
+    $self->prepare(localhost => set => { $oid => $value, ... });
+    $self->prepare(all => { community => 's3cret' }, get => [$oid, ...]);
 
 =back
 
 =cut
 
-sub add {
+sub prepare {
     my $self = shift;
     my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
     my $args = ref $_[0] eq 'HASH' ? shift : DEFAULT_NET_SNMP_ARGS();
@@ -230,7 +230,7 @@ This is useful if you want to block your code: C<wait()> starts the ioloop and
 runs until L</timeout> or L</finish> is reached.
 
     $snmp = Mojo::SNMP->new;
-    $snmp->add(...);
+    $snmp->prepare(...);
     $snmp->wait; # blocks while retrieving data
     # ... your program continues after completion
 

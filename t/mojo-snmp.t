@@ -5,12 +5,12 @@ my $snmp = Mojo::SNMP->new;
 my $finish = 0;
 
 $snmp->on(response => sub {
-    my($host, $snmp, $varbindlist) = @_;
+    my($self, $session) = @_;
     diag "response: $snmp";
 });
 
 $snmp->on(error => sub {
-    my($host, $error, $snmp) = @_;
+    my($host, $error, $session) = @_;
     diag "error: $error";
 });
 
@@ -19,7 +19,7 @@ $snmp->on(finish => sub {
     $finish++;
 });
 
-$snmp->add('127.0.0.1', get => ['1.2.3']);
+$snmp->prepare('127.0.0.1', { timeout => 1 }, get => ['1.2.3']);
 $snmp->wait;
 
 is $finish, 1, 'finish event was emitted';
