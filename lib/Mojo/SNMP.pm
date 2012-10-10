@@ -28,16 +28,6 @@ use Mojo::IOLoop;
 use Scalar::Util;
 use Net::SNMP ();
 
-sub DELAY { 0.005 }
-sub DEFAULT_NET_SNMP_ARGS {
-    +{
-        version => '2c',
-        community => 'public',
-        timeout => 10,
-        retries => 0,
-    };
-}
-
 =head1 EVENTS
 
 =head2 error
@@ -97,6 +87,18 @@ has ioloop => sub { Mojo::IOLoop->singleton };
 has _pool => sub { +{} };
 has _queue => sub { +[] };
 
+# these attributes are experimental and therefor not exposed. let me know if
+# you use them...
+has _delay => 0.005;
+has _default_session_args => sub {
+    +{
+        version => '2c',
+        community => 'public',
+        timeout => 10,
+        retries => 0,
+    };
+};
+
 =head1 METHODS
 
 =head2 prepare
@@ -137,7 +139,7 @@ Example:
 sub prepare {
     my $self = shift;
     my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
-    my $args = ref $_[0] eq 'HASH' ? shift : DEFAULT_NET_SNMP_ARGS();
+    my $args = ref $_[0] eq 'HASH' ? shift : $self->_default_session_args;
 
     $hosts = [ keys %{ $self->_pool } ] if $hosts->[0] eq 'all';
 
@@ -203,7 +205,7 @@ sub _setup {
 
     if(my $timeout = $self->master_timeout) {
         $timeout += time;
-        $tid = $ioloop->recurring(DELAY(), sub {
+        $tid = $ioloop->recurring($self->_delay, sub {
             if($timeout < time) {
                 $ioloop->remove($tid);
                 $self->emit_safe('timeout');
@@ -215,7 +217,7 @@ sub _setup {
         });
     }
     else {
-        $tid = $ioloop->recurring(DELAY(), sub {
+        $tid = $ioloop->recurring($self->_delay, sub {
             unless(Net::SNMP::snmp_dispatch_once) {
                 $ioloop->remove($tid);
                 $self->emit_safe('finish');
