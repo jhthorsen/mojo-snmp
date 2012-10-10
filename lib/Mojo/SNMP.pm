@@ -10,11 +10,11 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
     my $snmp = Mojo::SNMP->new;
 
     $snmp->on(response => sub {
-        my($host, $error, $res) = @_;
+        my($host, $session) = @_;
     });
 
     $snmp->add('127.0.0.1', get => ['1.2.3']);
-    $snmp->start;
+    $snmp->wait;
 
 =head1 DESCRIPTION
 
@@ -28,23 +28,26 @@ use Mojo::IOLoop;
 use Scalar::Util;
 use Net::SNMP ();
 
-my %NET_SNMP_ARGS = (
-    version => '2c',
-    community => 'public',
-    timeout => 1,
-    retries => 0,
-);
+sub DELAY { 0.005 }
+sub DEFAULT_NET_SNMP_ARGS {
+    +{
+        version => '2c',
+        community => 'public',
+        timeout => 10,
+        retries => 0,
+    };
+}
 
 =head1 EVENTS
 
-=head2 response
+=head2 error
 
-    $self->on(response => sub {
-        my($self, $host, $res) = @_;
+    $self->on(error => sub {
+        my($self, $str, $session) = @_;
     });
 
-Called each time a host responds or timeout. C<$res> will be a hash ref on
-success and a plain string on error.
+Emitted on errors which may occur. C<$session> is set if the error is a result
+of a L<Net::SNMP> method, such as L<get_request()|Net::SNMP/get_request>.
 
 =head2 finish
 
@@ -52,7 +55,16 @@ success and a plain string on error.
         my $self = shift;
     });
 
-Emitted when all hosts has timed out or completed.
+Emitted when all hosts has completed.
+
+=head2 response
+
+    $self->on(response => sub {
+        my($self, $session) = @_;
+    });
+
+Called each time a host responds. The C<$session> is the current L<Net::SNMP>
+object.
 
 =head2 timeout
 
@@ -60,8 +72,7 @@ Emitted when all hosts has timed out or completed.
         my $self = shift;
     })
 
-This method is called if the L</timeout> attribute is set and time has is
-passed.
+Emitted if L<wait> has been running for more than L</master_timeout> seconds.
 
 =head1 ATTRIBUTES
 
@@ -69,7 +80,7 @@ passed.
 
 How many hosts to fetch data from at once. Default is 20.
 
-=head2 timeout
+=head2 master_timeout
 
 How long to run in total before timeout. Note: This is NOT pr host but for
 complete run. Default is 0, meaning run for as long as you have to.
@@ -81,11 +92,10 @@ Holds an instance of L<Mojo::IOLoop>.
 =cut
 
 has concurrent => 20;
-has timeout => 0;
+has master_timeout => 0;
 has ioloop => sub { Mojo::IOLoop->singleton };
 has _pool => sub { +{} };
 has _queue => sub { +[] };
-has _tid => 0;
 
 =head1 METHODS
 
@@ -93,21 +103,32 @@ has _tid => 0;
 
     $self = $self->add($host, \%args, ...);
     $self = $self->add(\@hosts, \%args, ...);
-    $self = $self->add(all => ...);
+    $self = $self->add(all => \%args, ...);
 
 =over 4
 
-=item * host
+=item * $host
 
-=item * args
+This can either be an array ref or a single host. The "host" can be whatever
+L<Net::SNMP/session> can handle, which is (at least) a hostname or IP address.
+A special hostname "all" will apply the given arguments to all the previous
+hosts defined.
 
-=item * get
+=item * %args
 
-=item * getnext
+This argument should contain a hash ref with with options which will be passed
+directly to L<Net::SNMP/session>. This argument is optional.
 
-=item * walk
+=item * dot-dot-dot
 
-=item * set
+The list of arguments given to L</add> should be a key value pair of SNMP
+operations and bindlists to act on.
+
+Example:
+
+    $self->add('192.168.0.1' => walk => [$oid, ...]);
+    $self->add(localhost => set => { $oid => $value, ... });
+    $self->add(all => { community => 's3cret' }, get => [$oid, ...]);
 
 =back
 
@@ -116,112 +137,102 @@ has _tid => 0;
 sub add {
     my $self = shift;
     my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
-    my $args = ref $_[0] eq 'HASH' ? shift : { %NET_SNMP_ARGS };
+    my $args = ref $_[0] eq 'HASH' ? shift : DEFAULT_NET_SNMP_ARGS();
 
     $hosts = [ keys %{ $self->_pool } ] if $hosts->[0] eq 'all';
 
+    HOST:
     for my $host (@$hosts) {
-        $self->_pool->{$host} ||= $self->_new_session($host, $args);
+        $self->_pool->{$host} ||= $self->_new_session($host, $args) or next HOST;
 
         local @_ = @_;
         while(@_) {
             my $method = shift;
             my $oid = ref $_[0] eq 'ARRAY' ? shift : [shift];
-            push @{ $self->_queue }, [ $host, $method, $oid ]
+            push @{ $self->_queue }, [ $host, "$method\_request", $oid ]
         }
     }
 
+    $self->{_requests} ||= 0;
+    $self->_setup unless $self->{_setup}++;
+    $self->_prepare_request or last for $self->{_requests} .. $self->concurrent;
     $self;
 }
 
 sub _new_session {
-    my $args = $_[2]->{args} || { %NET_SNMP_ARGS };
-    my($session, $error) = Net::SNMP->session(hostname => $_[1], %$args);
-    die $error unless $session;
-    return $session;
+    my($self, $host, $args) = @_;
+    my($session, $error) = Net::SNMP->session(%$args, hostname => $host, nonblocking => 1);
+    $self->emit(error => "$host: $error") unless $session;
+    $session;
 }
 
-sub _id {
-    my $host = $_[1]->{host} or return;
-    my $args = $_[1]->{args} || \%NET_SNMP_ARGS;
-
-    # NOTE: The key list might change in future versions
-    join('|',
-        $host,
-        map { defined $args->{$_} ? $args->{$_} : '_' } qw/
-            port
-            version
-            community
-            username
-        /
-    );
-}
-
-=head2 start
-
-    $self = $self->start;
-
-Will prepare the ioloop to send and receive data to the hosts prepared with
-L</add>. This ioloop will abort the job if L</timeout> is set and time the
-time has past.
-
-=cut
-
-sub start {
+sub _prepare_request {
     my $self = shift;
-    my $ioloop = $self->ioloop;
-    my($snmp) = values %{ $self->_pool };
-    my $timeout = $self->timeout ? time + $self->timeout : 0;
-    my $tid;
+    my $item = shift @{ $self->_queue } or return 0;
+    my($host, $method, $varbindlist) = @$item;
+    my $res;
 
-    warn "[SNMP] Gather information from " .int(keys %{ $self->_pool }) ." hosts\n" if DEBUG;
-
-    unless($snmp and @{ $self->_queue }) {
-        $self->emit_safe('finish');
-        return $self;
-    }
-
-    $tid = $ioloop->recurring(0.01, sub {
-        if($timeout and $timeout < time) {
-            $ioloop->remove($tid);
-            $self->emit_safe('timeout');
-        }
-        elsif(!$snmp->snmp_dispatch_once) {
-            $ioloop->remove($tid);
-            $self->emit_safe('finish');
-        }
-    });
-
-    $self->{_current} ||= 0;
-    $self->_start_request for $self->{_current} .. $self->concurrent;
-    $self;
-}
-
-sub _start_request {
-    my $self = shift;
-    my $item = shift @{ $self->_queue } or return;
-    my($host, $action, $varbindlist) = @$item;
-    my $session = $self->_pool->{$host};
-
-    warn "[SNMP] $action(@$varbindlist) from $host\n" if DEBUG;
+    warn "[SNMP] $method(@$varbindlist) from $host\n" if DEBUG;
     Scalar::Util::weaken($self);
-    $session->${ \ "$action\_request" }(
+    $res = $self->_pool->{$host}->$method(
         varbindlist => $varbindlist,
         callback => sub {
-            $self->emit(response => $host, @_);
-            $self->_start_requests;
-            $self->emit('finish') unless --$self->{_current};
+            my $session = shift;
+            if($session->var_bind_list) {
+                $self->emit_safe(response => $session);
+            }
+            else {
+                $self->emit_safe(error => $session->error, $session);
+            }
+            $self->_prepare_request;
         },
     );
 
-    $self->{_current}++;
+    return ++$self->{_requests} if $res;
+    $self->emit_safe(error => $self->_pool->{$host}->error, $self->_pool->{$host});
+    return $self->{_requests} || '0e0';
+}
+
+sub _setup {
+    my $self = shift;
+    my $ioloop = $self->ioloop;
+    my $tid;
+
+    Scalar::Util::weaken($ioloop);
+    Scalar::Util::weaken($self);
+
+    if(my $timeout = $self->master_timeout) {
+        $timeout += time;
+        $tid = $ioloop->recurring(DELAY(), sub {
+            if($timeout < time) {
+                $ioloop->remove($tid);
+                $self->emit_safe('timeout');
+            }
+            elsif(not Net::SNMP::snmp_dispatch_once) {
+                $ioloop->remove($tid);
+                $self->emit_safe('finish');
+            }
+        });
+    }
+    else {
+        $tid = $ioloop->recurring(DELAY(), sub {
+            unless(Net::SNMP::snmp_dispatch_once) {
+                $ioloop->remove($tid);
+                $self->emit_safe('finish');
+            }
+        });
+    }
 }
 
 =head2 wait
 
-This is an alternative to L</start> if you want to block in your code:
-C<wait()> starts the ioloop and runs until L</timeout> or L</finish> is
-reached.
+This is useful if you want to block your code: C<wait()> starts the ioloop and
+runs until L</timeout> or L</finish> is reached.
+
+    $snmp = Mojo::SNMP->new;
+    $snmp->add(...);
+    $snmp->wait; # blocks while retrieving data
+    # ... your program continues after completion
 
 =cut
 
@@ -238,7 +249,6 @@ sub wait {
 
     $self->once(finish => $stop);
     $self->once(timeout => $stop);
-    $self->start;
     $ioloop->start;
     $self;
 }

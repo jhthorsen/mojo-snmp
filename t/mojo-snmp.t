@@ -5,8 +5,13 @@ my $snmp = Mojo::SNMP->new;
 my $finish = 0;
 
 $snmp->on(response => sub {
-    my($host, $error, $res) = @_;
-    diag 'response!';
+    my($host, $snmp, $varbindlist) = @_;
+    diag "response: $snmp";
+});
+
+$snmp->on(error => sub {
+    my($host, $error, $snmp) = @_;
+    diag "error: $error";
 });
 
 $snmp->on(finish => sub {
