@@ -126,7 +126,7 @@ This argument is optional.
 The list of arguments given to L</prepare> should be a key value pair of SNMP
 operations and bindlists to act on.
 
-Example:
+Examples:
 
     $self->prepare('192.168.0.1' => walk => [$oid, ...]);
     $self->prepare(localhost => set => { $oid => $value, ... });
@@ -164,7 +164,7 @@ sub prepare {
 sub _new_session {
     my($self, $host, $args) = @_;
     my($session, $error) = Net::SNMP->session(%$args, hostname => $host, nonblocking => 1);
-    $self->emit(error => "$host: $error") unless $session;
+    $self->emit(error => "$host: $error") if (! $session || $error);
     $session;
 }
 
