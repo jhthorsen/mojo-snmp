@@ -72,8 +72,8 @@ How many hosts to fetch data from at once. Default is 20.
 
 =head2 master_timeout
 
-How long to run in total before timeout. Note: This is NOT pr host but for
-complete run. Default is 0, meaning run for as long as you have to.
+How long to run in total before timeout. Note: This is NOT per host but for
+the complete run. Default is 0, meaning run for as long as you have to.
 
 =head2 ioloop
 
@@ -87,7 +87,7 @@ has ioloop => sub { Mojo::IOLoop->singleton };
 has _pool => sub { +{} };
 has _queue => sub { +[] };
 
-# these attributes are experimental and therefor not exposed. let me know if
+# these attributes are experimental and therefore not exposed. Let me know if
 # you use them...
 has _delay => 0.005;
 has _default_session_args => sub {
@@ -113,24 +113,24 @@ has _default_session_args => sub {
 
 This can either be an array ref or a single host. The "host" can be whatever
 L<Net::SNMP/session> can handle, which is (at least) a hostname or IP address.
-A special hostname "all" will apply the given arguments to all the previous
+The special hostname "*" will apply the given arguments to all the previous
 hosts defined.
 
 =item * %args
 
-This argument should contain a hash ref with with options which will be passed
-directly to L<Net::SNMP/session>. This argument is optional.
+A hash ref of options which will be passed directly to L<Net::SNMP/session>.
+This argument is optional.
 
 =item * dot-dot-dot
 
 The list of arguments given to L</prepare> should be a key value pair of SNMP
 operations and bindlists to act on.
 
-Example:
+Examples:
 
     $self->prepare('192.168.0.1' => walk => [$oid, ...]);
     $self->prepare(localhost => set => { $oid => $value, ... });
-    $self->prepare(all => { community => 's3cret' }, get => [$oid, ...]);
+    $self->prepare('*' => { community => 's3cret' }, get => [$oid, ...]);
 
 =back
 
@@ -141,7 +141,7 @@ sub prepare {
     my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
     my $args = ref $_[0] eq 'HASH' ? shift : $self->_default_session_args;
 
-    $hosts = [ keys %{ $self->_pool } ] if $hosts->[0] eq 'all';
+    $hosts = [ keys %{ $self->_pool } ] if $hosts->[0] eq '*';
 
     HOST:
     for my $host (@$hosts) {
@@ -164,7 +164,7 @@ sub prepare {
 sub _new_session {
     my($self, $host, $args) = @_;
     my($session, $error) = Net::SNMP->session(%$args, hostname => $host, nonblocking => 1);
-    $self->emit(error => "$host: $error") unless $session;
+    $self->emit(error => "$host: $error") if (! $session || $error);
     $session;
 }
 
