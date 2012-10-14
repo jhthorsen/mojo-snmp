@@ -23,10 +23,13 @@ This module use L<Net::SNMP> to fetch data from hosts asynchronous.
 =cut
 
 use Mojo::Base 'Mojo::EventEmitter';
-use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 1;
 use Mojo::IOLoop;
-use Scalar::Util;
 use Net::SNMP ();
+use Scalar::Util;
+use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
+
+# TODO: Should this be available as a packet variable?
+our $DISPATCHER = $Net::SNMP::DISPATCHER;
 
 =head1 EVENTS
 
@@ -171,19 +174,21 @@ sub _new_session {
 sub _prepare_request {
     my $self = shift;
     my $item = shift @{ $self->_queue } or return 0;
-    my($host, $method, $varbindlist) = @$item;
+    my($host, $method, $list) = @$item;
     my $res;
 
-    warn "[SNMP] $method(@$varbindlist) from $host\n" if DEBUG;
+    warn "[SNMP] >>> $host $method(@$list)\n" if DEBUG;
     Scalar::Util::weaken($self);
     $res = $self->_pool->{$host}->$method(
-        varbindlist => $varbindlist,
+        varbindlist => $list,
         callback => sub {
             my $session = shift;
             if($session->var_bind_list) {
+                warn "[SNMP] <<< $host $method(@$list)\n" if DEBUG;
                 $self->emit_safe(response => $session);
             }
             else {
+                warn "[SNMP] <<< $host @{[$session->error]}\n" if DEBUG;
                 $self->emit_safe(error => $session->error, $session);
             }
             $self->_prepare_request;
@@ -207,20 +212,26 @@ sub _setup {
         $timeout += time;
         $tid = $ioloop->recurring($self->_delay, sub {
             if($timeout < time) {
+                warn "[SNMP] Timeout\n" if DEBUG;
                 $ioloop->remove($tid);
                 $self->emit_safe('timeout');
+                $self->{_setup} = 0;
             }
-            elsif(not Net::SNMP::snmp_dispatch_once) {
+            elsif(not $DISPATCHER->one_event) {
+                warn "[SNMP] Finish\n" if DEBUG;
                 $ioloop->remove($tid);
                 $self->emit_safe('finish');
+                $self->{_setup} = 0;
             }
         });
     }
     else {
         $tid = $ioloop->recurring($self->_delay, sub {
             unless(Net::SNMP::snmp_dispatch_once) {
+                warn "[SNMP] Finish\n" if DEBUG;
                 $ioloop->remove($tid);
                 $self->emit_safe('finish');
+                $self->{_setup} = 0;
             }
         });
     }
