@@ -35,16 +35,18 @@ This module use L<Net::SNMP> and L<Mojo::IOLoop> to fetch data from hosts asynch
 
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::IOLoop;
+use Mojo::SNMP::Dispatcher;
 use Net::SNMP ();
 use Scalar::Util;
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
 
-my $DISPATCHER = $Net::SNMP::DISPATCHER;
 my %EXCLUDE = (
     v1 => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
     v2c => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
     v3 => [qw/ community /],
 );
+
+$Net::SNMP::DISPATCHER = $Net::SNMP::DISPATCHER; # avoid warning
 
 =head1 EVENTS
 
@@ -119,6 +121,7 @@ has ioloop => sub { Mojo::IOLoop->singleton };
 has _pool => sub { +{} };
 has _queue => sub { +[] };
 has _delay => 0.005;
+has _dispatcher => sub { Mojo::SNMP::Dispatcher->new(ioloop => $_[0]->ioloop) };
 
 =head1 METHODS
 
@@ -192,7 +195,7 @@ sub prepare {
 
     $self->{_requests} ||= 0;
     $self->_prepare_request or last for $self->{_requests} .. $self->concurrent - 1;
-    $self->_setup unless $self->{_setup}++;
+    $self->_setup if !$self->{_setup}++ and $self->ioloop->is_running;
     $self;
 }
 
@@ -219,7 +222,11 @@ sub _prepare_request {
     my $item = shift @{ $self->_queue } or return 0;
     my($key, $method, $list) = @$item;
     my $session = $self->_pool->{$key};
+    my $dispatcher = $self->_dispatcher;
     my $success;
+
+    # dispatch to custom dispatcher
+    local $Net::SNMP::DISPATCHER = $dispatcher;
 
     warn "[SNMP] >>> $key $method(@$list)\n" if DEBUG;
     Scalar::Util::weaken($self);
@@ -236,6 +243,7 @@ sub _prepare_request {
                 $self->emit_safe(error => $session->error, $session);
             }
             $self->_prepare_request;
+            $self->emit('finish') unless $dispatcher->connections;
         },
     );
 
@@ -246,39 +254,20 @@ sub _prepare_request {
 
 sub _setup {
     my $self = shift;
+    my $timeout = $self->master_timeout or return;
     my $ioloop = $self->ioloop;
     my $tid;
 
     Scalar::Util::weaken($ioloop);
     Scalar::Util::weaken($self);
 
-    if(my $timeout = $self->master_timeout) {
-        $timeout += time;
-        $tid = $ioloop->recurring($self->_delay, sub {
-            if($timeout < time) {
-                warn "[SNMP] Timeout\n" if DEBUG;
-                $ioloop->remove($tid);
-                $self->emit_safe('timeout');
-                $self->{_setup} = 0;
-            }
-            elsif(not $DISPATCHER->one_event) {
-                warn "[SNMP] Finish\n" if DEBUG;
-                $ioloop->remove($tid);
-                $self->emit_safe('finish');
-                $self->{_setup} = 0;
-            }
-        });
-    }
-    else {
-        $tid = $ioloop->recurring($self->_delay, sub {
-            if(not $DISPATCHER->one_event) {
-                warn "[SNMP] Finish\n" if DEBUG;
-                $ioloop->remove($tid);
-                $self->emit_safe('finish');
-                $self->{_setup} = 0;
-            }
-        });
-    }
+    $timeout += time;
+    $tid = $ioloop->timer($timeout => sub {
+        warn "[SNMP] Timeout\n" if DEBUG;
+        $ioloop->remove($tid);
+        $self->emit_safe('timeout');
+        $self->{_setup} = 0;
+    });
 }
 
 =head2 wait
@@ -303,6 +292,7 @@ sub wait {
         $ioloop->stop;
     };
 
+    $self->_setup unless $self->{_setup}++;
     $self->once(finish => $stop);
     $self->once(timeout => $stop);
     $ioloop->start;
