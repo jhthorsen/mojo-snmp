@@ -21,8 +21,8 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
         version => 'v2c', # v1, v2c or v3
     });
 
-    $snmp->prepare('127.0.0.1', { version => 'v2c' }, get => ['1.3.6.1.2.1.1.3.0']);
-    $snmp->prepare('127.0.0.1', { version => 'v3' }, get => ['1.3.6.1.2.1.1.3.0']);
+    $snmp->prepare('127.0.0.1', get_next => ['1.3.6.1.2.1.1.3.0']);
+    $snmp->prepare('localhost', { version => 'v3' }, get => ['1.3.6.1.2.1.1.3.0']);
 
     # start the IOLoop unless it is already running
     $snmp->wait unless $snmp->ioloop->is_running;
@@ -126,7 +126,8 @@ has _delay => 0.005;
 
     $self = $self->prepare($host, \%args, ...);
     $self = $self->prepare(\@hosts, \%args, ...);
-    $self = $self->prepare('*' => \%args, ...);
+    $self = $self->prepare(\@hosts, ...);
+    $self = $self->prepare('*' => ...);
 
 =over 4
 
@@ -152,8 +153,12 @@ Examples:
 
     $self->prepare('192.168.0.1' => { version => 'v2c' }, get_next => [$oid, ...]);
     $self->prepare('192.168.0.1' => { version => 'v3' }, get => [$oid, ...]);
-    $self->prepare(localhost => set => { $oid => $value, ... });
+    $self->prepare(localhost => set => [ $oid => OCTET_STRING, $value, ... ]);
     $self->prepare('*' => get => [ $oid ... ]);
+
+Note: To get the C<OCTET_STRING> constant and friends you need to do:
+
+    use Net::SNMP ':asn1';
 
 =back
 
