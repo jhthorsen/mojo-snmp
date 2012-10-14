@@ -8,17 +8,28 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
     use Mojo::SNMP;
     my $snmp = Mojo::SNMP->new;
+    my @response;
 
     $snmp->on(response => sub {
-        my($host, $session) = @_;
+        my($snmp, $session) = @_;
+        push @response, $session->var_bind_list;
     });
 
-    $snmp->prepare('127.0.0.1', get => ['1.2.3']);
-    $snmp->wait;
+    $snmp->defaults({
+        community => 'public', # v1, v2c
+        username => 'foo', # v3
+        version => 'v2c', # v1, v2c or v3
+    });
+
+    $snmp->prepare('127.0.0.1', { version => 'v2c' }, get => ['1.3.6.1.2.1.1.3.0']);
+    $snmp->prepare('127.0.0.1', { version => 'v3' }, get => ['1.3.6.1.2.1.1.3.0']);
+
+    # start the IOLoop unless it is already running
+    $snmp->wait unless $snmp->ioloop->is_running;
 
 =head1 DESCRIPTION
 
-This module use L<Net::SNMP> to fetch data from hosts asynchronous.
+This module use L<Net::SNMP> and L<Mojo::IOLoop> to fetch data from hosts asynchronous.
 
 =cut
 
@@ -28,8 +39,12 @@ use Net::SNMP ();
 use Scalar::Util;
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
 
-# TODO: Should this be available as a packet variable?
-our $DISPATCHER = $Net::SNMP::DISPATCHER;
+my $DISPATCHER = $Net::SNMP::DISPATCHER;
+my %EXCLUDE = (
+    v1 => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
+    v2c => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
+    v3 => [qw/ community /],
+);
 
 =head1 EVENTS
 
@@ -71,7 +86,17 @@ Emitted if L<wait> has been running for more than L</master_timeout> seconds.
 
 =head2 concurrent
 
-How many hosts to fetch data from at once. Default is 20.
+How many hosts to fetch data from at once. Default is 20. (The default may
+change in later versions)
+
+=head2 defaults
+
+This attribute holds a hash ref with default arguments which should be passed
+on to L<Net::SNMP/session>. This will be merged with the C<%args> given to
+L</prepare>, but C<prepare()> is clever enough to filter out which arguments
+that that is related to which SNMP version.
+
+NOTE: SNMP version will default to "v2c" unless specified.
 
 =head2 master_timeout
 
@@ -85,22 +110,15 @@ Holds an instance of L<Mojo::IOLoop>.
 =cut
 
 has concurrent => 20;
+has defaults => sub { +{} };
 has master_timeout => 0;
 has ioloop => sub { Mojo::IOLoop->singleton };
-has _pool => sub { +{} };
-has _queue => sub { +[] };
 
 # these attributes are experimental and therefore not exposed. Let me know if
 # you use them...
+has _pool => sub { +{} };
+has _queue => sub { +[] };
 has _delay => 0.005;
-has _default_session_args => sub {
-    +{
-        version => '2c',
-        community => 'public',
-        timeout => 10,
-        retries => 0,
-    };
-};
 
 =head1 METHODS
 
@@ -108,7 +126,7 @@ has _default_session_args => sub {
 
     $self = $self->prepare($host, \%args, ...);
     $self = $self->prepare(\@hosts, \%args, ...);
-    $self = $self->prepare(all => \%args, ...);
+    $self = $self->prepare('*' => \%args, ...);
 
 =over 4
 
@@ -116,24 +134,26 @@ has _default_session_args => sub {
 
 This can either be an array ref or a single host. The "host" can be whatever
 L<Net::SNMP/session> can handle, which is (at least) a hostname or IP address.
-The special hostname "*" will apply the given arguments to all the previous
-hosts defined.
 
 =item * %args
 
 A hash ref of options which will be passed directly to L<Net::SNMP/session>.
-This argument is optional.
+This argument is optional. See also L</defaults>.
 
 =item * dot-dot-dot
 
 The list of arguments given to L</prepare> should be a key value pair of SNMP
 operations and bindlists to act on.
 
+The special hostname "*" will apply the given request to all the previous
+hosts defined.
+
 Examples:
 
-    $self->prepare('192.168.0.1' => walk => [$oid, ...]);
+    $self->prepare('192.168.0.1' => { version => 'v2c' }, get_next => [$oid, ...]);
+    $self->prepare('192.168.0.1' => { version => 'v3' }, get => [$oid, ...]);
     $self->prepare(localhost => set => { $oid => $value, ... });
-    $self->prepare('*' => { community => 's3cret' }, get => [$oid, ...]);
+    $self->prepare('*' => get => [ $oid ... ]);
 
 =back
 
@@ -142,61 +162,80 @@ Examples:
 sub prepare {
     my $self = shift;
     my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
-    my $args = ref $_[0] eq 'HASH' ? shift : $self->_default_session_args;
+    my $args = ref $_[0] eq 'HASH' ? shift : {};
 
-    $hosts = [ keys %{ $self->_pool } ] if $hosts->[0] eq '*';
+    $hosts = [ sort keys %{ $self->_pool } ] if $hosts->[0] and $hosts->[0] eq '*';
+
+    defined $args->{$_} or $args->{$_} = $self->defaults->{$_} for keys %{ $self->defaults };
+    $args->{version} = $self->_normalize_version($args->{version} || '');
+    delete $args->{$_} for @{ $EXCLUDE{$args->{version}} };
 
     HOST:
-    for my $host (@$hosts) {
-        $self->_pool->{$host} ||= $self->_new_session($host, $args) or next HOST;
+    for my $key (@$hosts) {
+        my($host) = $key =~ /^([^|]+)/;
+        local $args->{hostname} = $host;
+        my $key = $key eq $host ? $self->_calculate_pool_key($args) : $key;
+        $self->_pool->{$key} ||= $self->_new_session($args) or next HOST;
 
         local @_ = @_;
         while(@_) {
             my $method = shift;
             my $oid = ref $_[0] eq 'ARRAY' ? shift : [shift];
-            push @{ $self->_queue }, [ $host, "$method\_request", $oid ]
+            push @{ $self->_queue }, [ $key, "$method\_request", $oid ]
         }
     }
 
     $self->{_requests} ||= 0;
+    $self->_prepare_request or last for $self->{_requests} .. $self->concurrent - 1;
     $self->_setup unless $self->{_setup}++;
-    $self->_prepare_request or last for $self->{_requests} .. $self->concurrent;
     $self;
 }
 
+sub _calculate_pool_key {
+    join '|', map { defined $_[1]->{$_} ? $_[1]->{$_} : '' } qw/ hostname version community username /;
+}
+
+sub _normalize_version {
+    $_[1] =~ /1/ ? 'v1' : $_[1] =~ /3/ ? 'v3' : 'v2c';
+}
+
 sub _new_session {
-    my($self, $host, $args) = @_;
-    my($session, $error) = Net::SNMP->session(%$args, hostname => $host, nonblocking => 1);
-    $self->emit(error => "$host: $error") if (! $session || $error);
-    $session;
+    my($self, $args) = @_;
+    my($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
+
+    return $session if $session and not $error;
+    warn "[SNMP] New session $args->{hostname}: $error\n" if DEBUG;
+    $self->emit(error => "$args->{hostname}: $error");
+    return;
 }
 
 sub _prepare_request {
     my $self = shift;
     my $item = shift @{ $self->_queue } or return 0;
-    my($host, $method, $list) = @$item;
-    my $res;
+    my($key, $method, $list) = @$item;
+    my $session = $self->_pool->{$key};
+    my $success;
 
-    warn "[SNMP] >>> $host $method(@$list)\n" if DEBUG;
+    warn "[SNMP] >>> $key $method(@$list)\n" if DEBUG;
     Scalar::Util::weaken($self);
-    $res = $self->_pool->{$host}->$method(
+    $success = $session->$method(
         varbindlist => $list,
         callback => sub {
             my $session = shift;
             if($session->var_bind_list) {
-                warn "[SNMP] <<< $host $method(@$list)\n" if DEBUG;
+                warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
                 $self->emit_safe(response => $session);
             }
             else {
-                warn "[SNMP] <<< $host @{[$session->error]}\n" if DEBUG;
+                warn "[SNMP] <<< $key @{[$session->error]}\n" if DEBUG;
                 $self->emit_safe(error => $session->error, $session);
             }
             $self->_prepare_request;
         },
     );
 
-    return ++$self->{_requests} if $res;
-    $self->emit_safe(error => $self->_pool->{$host}->error, $self->_pool->{$host});
+    return ++$self->{_requests} if $success;
+    $self->emit_safe(error => $session->error, $session);
     return $self->{_requests} || '0e0';
 }
 
@@ -227,7 +266,7 @@ sub _setup {
     }
     else {
         $tid = $ioloop->recurring($self->_delay, sub {
-            unless(Net::SNMP::snmp_dispatch_once) {
+            if(not $DISPATCHER->one_event) {
                 warn "[SNMP] Finish\n" if DEBUG;
                 $ioloop->remove($tid);
                 $self->emit_safe('finish');
@@ -243,8 +282,7 @@ This is useful if you want to block your code: C<wait()> starts the ioloop and
 runs until L</timeout> or L</finish> is reached.
 
     $snmp = Mojo::SNMP->new;
-    $snmp->prepare(...);
-    $snmp->wait; # blocks while retrieving data
+    $snmp->prepare(...)->wait; # blocks while retrieving data
     # ... your program continues after completion
 
 =cut
@@ -265,6 +303,11 @@ sub wait {
     $ioloop->start;
     $self;
 }
+
+=head1 COPYRIGHT & LICENSE
+
+This library is free software. You can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =head1 AUTHOR
 

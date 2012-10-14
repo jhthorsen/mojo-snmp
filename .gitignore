@@ -11,3 +11,4 @@
 *.swp
 ~$
 /Mojo-SNMP*tar.gz
+/cover_db
