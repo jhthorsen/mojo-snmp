@@ -4,25 +4,40 @@ package Mojo::SNMP::Dispatcher;
 
 Mojo::SNMP::Dispatcher - Instead of Net::SNMP::Dispatcher
 
+=head1 DESCRIPTION
+
+This module works better with L<Mojo::IOLoop> since it register the
+L<IO::Socket::INET> sockets in with the mojo reactor.
+
 =cut
 
 use Errno;
 use Mojo::Base -base;
 use Mojo::IOLoop::Stream;
-use Net::SNMP::MessageProcessing();
+use Net::SNMP::MessageProcessing ();
 use Net::SNMP::Message qw( TRUE FALSE );
 use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
+
+#$Net::SNMP::Message::DEBUG = 1;
 
 =head1 ATTRIBUTES
 
 =head2 ioloop
 
+Holds a L<Mojo::IOLoop> object. Same as L<Mojo::SNMP/ioloop>.
+
 =head2 message_processing
+
+Holds an instance of L<Net::SNMP::MessageProcessing>.
 
 =head2 debug
 
+Does nothing. Use C<MOJO_SNMP_DEBUG=1> instead to get debug information.
+
 =head2 error
+
+Holds the last error.
 
 =cut
 
@@ -45,6 +60,8 @@ sub error {
 
 =head2 send_pdu
 
+This method will send a PDU to the SNMP server.
+
 =cut
 
 sub send_pdu {
@@ -64,6 +81,8 @@ sub send_pdu {
 
 =head2 return_response_pdu
 
+No idea what this does (?)
+
 =cut
 
 sub return_response_pdu {
@@ -72,6 +91,8 @@ sub return_response_pdu {
 
 =head2 msg_handle_alloc
 
+No idea what this does (?)
+
 =cut
 
 sub msg_handle_alloc {
@@ -79,6 +100,9 @@ sub msg_handle_alloc {
 }
 
 =head2 schedule
+
+Used to schedule events at a given time. Use L<Mojo::IOLoop/timer> to
+do the heavy lifting.
 
 =cut
 
@@ -93,6 +117,8 @@ sub schedule {
 }
 
 =head2 register
+
+Register a new transport object with L<Mojo::IOLoop::Reactor>.
 
 =cut
 
@@ -122,6 +148,8 @@ sub register {
 
 =head2 deregister
 
+The opposite of L</register>.
+
 =cut
 
 sub deregister {
@@ -132,8 +160,6 @@ sub deregister {
     warn "[DISPATCHER] Remove handler for descriptor $fileno\n" if DEBUG;
     $self->ioloop->reactor->remove($transport->socket);
 }
-
-#$Net::SNMP::Message::DEBUG = 1;
 
 sub _send_pdu {
     my($self, $pdu, $retries) = @_;
@@ -223,6 +249,11 @@ sub _transport_response_received {
     $self->deregister($transport);
     $msg->process_response_pdu;
 }
+
+=head1 COPYRIGHT & LICENSE
+
+This library is free software. You can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =head1 AUTHOR
 
