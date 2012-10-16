@@ -7,11 +7,12 @@ my $snmp = Mojo::SNMP->new;
 my(@response, @error, $timeout, $finish);
 
 plan skip_all => 'Crypt::DES is required' unless eval 'require Crypt::DES; 1';
+plan tests => 22;
 
 $snmp->concurrent(0); # required to set up the queue
 $snmp->defaults({ timeout => 1, community => 'public', username => 'foo' });
 $snmp->on(response => sub { push @response, $_[1]->var_bind_list });
-$snmp->on(error => sub { push @error, $_[1] });
+$snmp->on(error => sub { note "error: $_[1]"; push @error, $_[1] });
 $snmp->on(finish => sub { $finish++ });
 $snmp->on(timeout => sub { $timeout++ });
 
@@ -74,7 +75,12 @@ is ref $request[3], 'CODE', 'callback was passed on to get_request';
 is_deeply $request[5], ['1.3.6.1.2.1.1.6.0'], 'varbindlist was passed on to get_next_request';
 is ref $request[7], 'CODE', 'callback was passed on to get_next_request';
 
+# Capture the expected 'yikes!' error.
+$snmp->unsubscribe('error');
+$snmp->on(error => sub { push @error, $_[1] });
 $request[3]->($net_snmp);
+$snmp->on(error => sub { note "error: $_[1]"; push @error, $_[1] });
+
 is $snmp->{_requests}, 3, 'callback prepared one requests';
 is int(@{ $snmp->_queue }), 7, 'seven left in the queue';
 is $error[0], 'yikes!', 'on(error) was triggered';
