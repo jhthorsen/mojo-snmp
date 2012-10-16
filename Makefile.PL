@@ -5,6 +5,7 @@ all_from q(lib/Mojo/SNMP.pm);
 
 recommends q(Test::Compile) => 0;
 recommends q(Crypt::DES) => 0;
+recommends q(Digest::HMAC) => 0; # for SNMPv3
 requires q(Mojolicious) => 3.38;
 requires q(SNMP) => 5.04;
 
