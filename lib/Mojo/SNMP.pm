@@ -208,9 +208,9 @@ sub _new_session {
     my($self, $args) = @_;
     my($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
 
-    return $session if $session and not $error;
     warn "[SNMP] New session $args->{hostname}: $error\n" if DEBUG;
-    $self->emit(error => "$args->{hostname}: $error");
+    $self->emit(error => "$args->{hostname}: $error") if $error;
+    return $session if $session;
     return;
 }
 
