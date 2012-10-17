@@ -39,17 +39,17 @@ provide a simple API which allow you to extract information from multiple
 servers at the same time.
 
 This module use L<Net::SNMP> and L<Mojo::IOLoop> to fetch data from hosts
-asynchronous. It does this by adding a custom dispatcher,
+asynchronous. It does this by using a custom dispatcher,
 L<Mojo::SNMP::Dispatcher>, which attach the sockets created by L<Net::SNMP>
 directly into the ioloop reactor.
 
 If you want greater speed, you should check out L<Net::SNMP::XS> and make sure
-L<Mojo::Reactor::EV> is able to load (L<EV> is required).
+L<Mojo::Reactor::EV> is able to load.
 
 L<Mojo::SNMP> is supposed to be a replacement for a module I wrote earlier,
-called L<SNMP::Effective>. Reason for the rewrite is that I've started using
-the framework L<Mojolicious> which includes an awesome IO loop which I allow
-me to do cool stuff inside my web server.
+called L<SNMP::Effective>. Reason for the rewrite is that I'm using the
+framework L<Mojolicious> which includes an awesome IO loop which allow me to
+do cool stuff inside my web server.
 
 =cut
 
@@ -168,7 +168,15 @@ This argument is optional. See also L</defaults>.
 =item * dot-dot-dot
 
 A list of key-value pairs of SNMP operations and bindlists which will be given
-to L</prepare>.
+to L</prepare>. The operations are the same as the method names available in
+L<Net::SNMP>, but without "_request" at end:
+
+    get
+    get_next
+    set
+    get_bulk
+    inform
+    ...
 
 The special hostname "*" will apply the given operation to all previously
 defined hosts.
@@ -331,7 +339,9 @@ it under the same terms as Perl itself.
 
 =head1 AUTHOR
 
-Jan Henning Thorsen - jhthorsen@cpan.org
+Jan Henning Thorsen - C<jhthorsen@cpan.org>
+
+Joshua Keroes - C<joshua@cpan.org>
 
 =cut
 
