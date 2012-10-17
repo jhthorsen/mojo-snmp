@@ -2,13 +2,16 @@ use strict;
 use warnings;
 use Test::More;
 use Mojo::SNMP;
+use constant TEST_MEMORY => $ENV{TEST_MEMORY} && eval 'use Test::Memory::Cycle; 1';
 
+diag 'Test::Memory::Cycle is not available' unless TEST_MEMORY;
 plan skip_all => 'Crypt::DES is required' unless eval 'require Crypt::DES; 1';
 
 my $snmp = Mojo::SNMP->new;
 $snmp->concurrent(0); # required to set up the queue
 $snmp->defaults({ timeout => 1, community => 'public', username => 'foo' });
 
+memory_cycle_ok($snmp) if TEST_MEMORY;
 isa_ok $snmp->ioloop, 'Mojo::IOLoop';
 isa_ok $snmp->_dispatcher, 'Mojo::SNMP::Dispatcher';
 is $snmp->master_timeout, 0, 'master_timeout is disabled by default';
@@ -22,6 +25,7 @@ ok $snmp->_pool->{'1.2.3.5|v2c|public|'}, '1.2.3.5 v2c public';
 
 $snmp->prepare('1.2.3.5', { version => 3 }, get => [qw/ 1.3.6.1.2.1.1.5.0 /]);
 ok $snmp->_pool->{'1.2.3.5|v3||foo'}, '1.2.3.5 v3 foo';
+memory_cycle_ok($snmp) if TEST_MEMORY;
 
 $snmp->prepare('127.0.0.1', { version => '2', community => 'foo' },
     get => [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /],
@@ -53,4 +57,5 @@ is_deeply($snmp->_queue, [
 ],
 'queue is set up');
 
+memory_cycle_ok($snmp) if TEST_MEMORY;
 done_testing;

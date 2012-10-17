@@ -2,6 +2,7 @@ use strict;
 use warnings;
 use Test::More;
 use Mojo::SNMP;
+use constant TEST_MEMORY => $ENV{TEST_MEMORY} && eval 'use Test::Memory::Cycle; 1';
 
 plan skip_all => 'LIVE_TEST=0' unless $ENV{LIVE_TEST};
 
@@ -11,8 +12,9 @@ my(@response, @error, $finish);
 $snmp->on(response => sub { push @response, $_[1]->var_bind_list });
 $snmp->on(error => sub { push @error, $_[1] });
 $snmp->on(finish => sub { $finish++ });
-
 $snmp->defaults({ community => 'public', version => 2 });
+
+memory_cycle_ok($snmp) if TEST_MEMORY;
 
 @response = ();
 $snmp->prepare('127.0.0.1', { timeout => 1 }, get => [qw/ 1.2.42.42 /])->wait;
@@ -31,4 +33,5 @@ ok defined $response[0]{'1.3.6.1.2.1.1.4.0'}, 'got contact name';
 ok defined $response[1]{'1.3.6.1.2.1.1.4.0'}, 'got contact name';
 ok defined $response[2]{'1.3.6.1.2.1.1.1.0'}, 'get_next system name';
 
+memory_cycle_ok($snmp) if TEST_MEMORY;
 done_testing;

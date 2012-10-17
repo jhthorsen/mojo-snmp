@@ -2,6 +2,7 @@ use strict;
 use warnings;
 use Test::More;
 use Mojo::SNMP;
+use constant TEST_MEMORY => $ENV{TEST_MEMORY} && eval 'use Test::Memory::Cycle; 1';
 
 my $snmp = Mojo::SNMP->new;
 my $net_snmp = Net::SNMP->new(nonblocking => 1);
@@ -18,6 +19,7 @@ $snmp->on(timeout => sub { $timeout++ });
 
 $snmp->prepare('1.2.3.4', { version => '2c' }, get => [qw/ 1.3.6.1.2.1.1.4.0 /]);
 
+memory_cycle_ok($snmp) if TEST_MEMORY;
 is_deeply($snmp->_queue, [
     [ '1.2.3.4|v2c|public|', 'get_request', ['1.3.6.1.2.1.1.4.0'] ],
 ],
@@ -42,4 +44,5 @@ $guard = 10_000;
 $snmp->ioloop->one_tick while $guard--;
 is $timeout, 1, 'on(timeout) was triggered';
 
+memory_cycle_ok($snmp) if TEST_MEMORY;
 done_testing;

@@ -293,6 +293,7 @@ sub wait {
         $_[0]->unsubscribe(finish => $stop);
         $_[0]->unsubscribe(timeout => $stop);
         $ioloop->stop;
+        undef $stop;
     };
 
     $self->_setup unless $self->{_setup}++;
