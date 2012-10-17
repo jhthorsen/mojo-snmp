@@ -65,7 +65,7 @@ of a L<Net::SNMP> method, such as L<get_request()|Net::SNMP/get_request>.
         my $self = shift;
     });
 
-Emitted when all hosts has completed.
+Emitted when all hosts have completed.
 
 =head2 response
 
@@ -93,12 +93,12 @@ change in later versions)
 
 =head2 defaults
 
-This attribute holds a hash ref with default arguments which should be passed
-on to L<Net::SNMP/session>. This will be merged with the C<%args> given to
-L</prepare>, but C<prepare()> is clever enough to filter out which arguments
-that that is related to which SNMP version.
+This attribute holds a hash ref with default arguments which will be passed
+on to L<Net::SNMP/session>. User-submitted C<%args> will be merged with the
+defaults before being submitted to L</prepare>. C<prepare()> will filter out
+and ignore arguments that don't work for the SNMP C<version>.
 
-NOTE: SNMP version will default to "v2c" unless specified.
+NOTE: SNMP version will default to "v2c".
 
 =head2 master_timeout
 
@@ -136,20 +136,20 @@ has _queue => sub { +[] };
 =item * $host
 
 This can either be an array ref or a single host. The "host" can be whatever
-L<Net::SNMP/session> can handle, which is (at least) a hostname or IP address.
+L<Net::SNMP/session> can handle; generally a hostname or IP address.
 
-=item * %args
+=item * \%args
 
 A hash ref of options which will be passed directly to L<Net::SNMP/session>.
 This argument is optional. See also L</defaults>.
 
 =item * dot-dot-dot
 
-The list of arguments given to L</prepare> should be a key value pair of SNMP
-operations and bindlists to act on.
+A list of key-value pairs of SNMP operations and bindlists which will be given
+to L</prepare>.
 
-The special hostname "*" will apply the given request to all the previous
-hosts defined.
+The special hostname "*" will apply the given operation to all previously
+defined hosts.
 
 Examples:
 
@@ -210,9 +210,9 @@ sub _new_session {
     my($self, $args) = @_;
     my($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
 
-    return $session if $session and not $error;
     warn "[SNMP] New session $args->{hostname}: $error\n" if DEBUG;
-    $self->emit(error => "$args->{hostname}: $error");
+    $self->emit(error => "$args->{hostname}: $error") if $error;
+    return $session if $session;
     return;
 }
 
@@ -278,9 +278,9 @@ sub _setup {
 This is useful if you want to block your code: C<wait()> starts the ioloop and
 runs until L</timeout> or L</finish> is reached.
 
-    $snmp = Mojo::SNMP->new;
+    my $snmp = Mojo::SNMP->new;
     $snmp->prepare(...)->wait; # blocks while retrieving data
-    # ... your program continues after completion
+    # ... your program continues after the SNMP operations have finished.
 
 =cut
 
