@@ -212,8 +212,7 @@ sub _new_session {
 
     warn "[SNMP] New session $args->{hostname}: $error\n" if DEBUG;
     $self->emit(error => "$args->{hostname}: $error") if $error;
-    return $session if $session;
-    return;
+    $session;
 }
 
 sub _prepare_request {
