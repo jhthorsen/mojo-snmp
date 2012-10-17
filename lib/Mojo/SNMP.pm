@@ -60,7 +60,7 @@ use Net::SNMP ();
 use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
 
-our $VERSION = '0.01';
+our $VERSION = eval '0.01';
 
 my %EXCLUDE = (
     v1 => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],

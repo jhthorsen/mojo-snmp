@@ -1,6 +1,6 @@
 Revision history for Mojo-SNMP
 
-0.01
+0.01     Wed Oct 17 23:38:47 2012
        * Add custom dispatcher
        * Add prepare()
        * Add wait()
