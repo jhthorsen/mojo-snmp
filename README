@@ -24,8 +24,23 @@ SYNOPSIS
         $snmp->wait unless $snmp->ioloop->is_running;
 
 DESCRIPTION
+    You should use this module if you need to fetch data from many SNMP
+    servers really fast. The module does its best to not get in your way,
+    but rather provide a simple API which allow you to extract information
+    from multiple servers at the same time.
+
     This module use Net::SNMP and Mojo::IOLoop to fetch data from hosts
-    asynchronous.
+    asynchronous. It does this by adding a custom dispatcher,
+    Mojo::SNMP::Dispatcher, which attach the sockets created by Net::SNMP
+    directly into the ioloop reactor.
+
+    If you want greater speed, you should check out Net::SNMP::XS and make
+    sure Mojo::Reactor::EV is able to load (EV is required).
+
+    Mojo::SNMP is supposed to be a replacement for a module I wrote earlier,
+    called SNMP::Effective. Reason for the rewrite is that I've started
+    using the framework Mojolicious which includes an awesome IO loop which
+    I allow me to do cool stuff inside my web server.
 
 EVENTS
   error
@@ -41,7 +56,7 @@ EVENTS
             my $self = shift;
         });
 
-    Emitted when all hosts has completed.
+    Emitted when all hosts have completed.
 
   response
         $self->on(response => sub {
@@ -64,12 +79,12 @@ ATTRIBUTES
     may change in later versions)
 
   defaults
-    This attribute holds a hash ref with default arguments which should be
-    passed on to "session" in Net::SNMP. This will be merged with the %args
-    given to "prepare", but "prepare()" is clever enough to filter out which
-    arguments that that is related to which SNMP version.
+    This attribute holds a hash ref with default arguments which will be
+    passed on to "session" in Net::SNMP. User-submitted %args will be merged
+    with the defaults before being submitted to "prepare". "prepare()" will
+    filter out and ignore arguments that don't work for the SNMP "version".
 
-    NOTE: SNMP version will default to "v2c" unless specified.
+    NOTE: SNMP version will default to "v2c".
 
   master_timeout
     How long to run in total before timeout. Note: This is NOT per host but
@@ -89,21 +104,21 @@ METHODS
     *   $host
 
         This can either be an array ref or a single host. The "host" can be
-        whatever "session" in Net::SNMP can handle, which is (at least) a
-        hostname or IP address.
+        whatever "session" in Net::SNMP can handle; generally a hostname or
+        IP address.
 
-    *   %args
+    *   \%args
 
         A hash ref of options which will be passed directly to "session" in
         Net::SNMP. This argument is optional. See also "defaults".
 
     *   dot-dot-dot
 
-        The list of arguments given to "prepare" should be a key value pair
-        of SNMP operations and bindlists to act on.
+        A list of key-value pairs of SNMP operations and bindlists which
+        will be given to "prepare".
 
-        The special hostname "*" will apply the given request to all the
-        previous hosts defined.
+        The special hostname "*" will apply the given operation to all
+        previously defined hosts.
 
         Examples:
 
@@ -120,9 +135,9 @@ METHODS
     This is useful if you want to block your code: "wait()" starts the
     ioloop and runs until "timeout" or "finish" is reached.
 
-        $snmp = Mojo::SNMP->new;
+        my $snmp = Mojo::SNMP->new;
         $snmp->prepare(...)->wait; # blocks while retrieving data
-        # ... your program continues after completion
+        # ... your program continues after the SNMP operations have finished.
 
 COPYRIGHT & LICENSE
     This library is free software. You can redistribute it and/or modify it

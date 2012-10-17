@@ -29,7 +29,23 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 =head1 DESCRIPTION
 
-This module use L<Net::SNMP> and L<Mojo::IOLoop> to fetch data from hosts asynchronous.
+You should use this module if you need to fetch data from many SNMP servers
+really fast. The module does its best to not get in your way, but rather
+provide a simple API which allow you to extract information from multiple
+servers at the same time.
+
+This module use L<Net::SNMP> and L<Mojo::IOLoop> to fetch data from hosts
+asynchronous. It does this by adding a custom dispatcher,
+L<Mojo::SNMP::Dispatcher>, which attach the sockets created by L<Net::SNMP>
+directly into the ioloop reactor.
+
+If you want greater speed, you should check out L<Net::SNMP::XS> and make sure
+L<Mojo::Reactor::EV> is able to load (L<EV> is required).
+
+L<Mojo::SNMP> is supposed to be a replacement for a module I wrote earlier,
+called L<SNMP::Effective>. Reason for the rewrite is that I've started using
+the framework L<Mojolicious> which includes an awesome IO loop which I allow
+me to do cool stuff inside my web server.
 
 =cut
 
