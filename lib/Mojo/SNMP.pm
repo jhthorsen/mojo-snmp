@@ -4,6 +4,10 @@ package Mojo::SNMP;
 
 Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
+=head1 VERSION
+
+0.01
+
 =head1 SYNOPSIS
 
     use Mojo::SNMP;
@@ -53,8 +57,10 @@ use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::IOLoop;
 use Mojo::SNMP::Dispatcher;
 use Net::SNMP ();
-use Scalar::Util;
+use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
+
+our $VERSION = '0.01';
 
 my %EXCLUDE = (
     v1 => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
