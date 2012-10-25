@@ -1,5 +1,8 @@
 Revision history for Mojo-SNMP
 
+0.0201   Thu Oct 25 21:20:42 2012
+       * Need to ignore ./local
+
 0.02     Thu Oct 18 00:07:55 2012
        * Add Joshua Keroes as author
        * Extended the documentation and fixed bugs
