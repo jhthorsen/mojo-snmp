@@ -69,6 +69,40 @@ my %EXCLUDE = (
     v3 => [qw/ community /],
 );
 
+my %SNMP_METHOD = (
+    walk => sub {
+        my($session, %args) = @_;
+        my $base_oid = $args{varbindlist}[0];
+        my $last = $args{callback};
+        my($callback, $end, %tree, %types);
+
+        $end = sub {
+            $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+            $session->$last;
+        };
+
+        $callback = sub {
+            my($session) = @_;
+            my $res = $session->var_bind_list or return $end->();
+            my $types = $session->var_bind_types;
+            my @next;
+
+            for my $oid (keys %$res) {
+                if(Net::SNMP::oid_base_match($base_oid, $oid)) {
+                    $types{$oid} = $types->{$oid};
+                    $tree{$oid} = $res->{$oid};
+                    push @next, $oid;
+                }
+            }
+
+            return $end->() unless @next;
+            return $session->get_next_request(varbindlist => \@next, callback => $callback);
+        };
+
+        $session->get_next_request(varbindlist => [$base_oid], callback => $callback);
+    },
+);
+
 $Net::SNMP::DISPATCHER = $Net::SNMP::DISPATCHER; # avoid warning
 
 =head1 EVENTS
@@ -186,6 +220,7 @@ L<Net::SNMP>, but without "_request" at end:
     set
     get_bulk
     inform
+    walk
     ...
 
 The special hostname "*" will apply the given operation to all previously
@@ -201,6 +236,10 @@ Examples:
 Note: To get the C<OCTET_STRING> constant and friends you need to do:
 
     use Net::SNMP ':asn1';
+
+Note: "walk" is a custom method provided by this module. It will run
+C<get_next_request> until the next oid retrieved does not match the
+base OID or if the tree is exhausted.
 
 =back
 
@@ -265,10 +304,10 @@ sub _prepare_request {
     my $success;
 
     # dispatch to our mojo based dispatcher
-    local $Net::SNMP::DISPATCHER = $self->_dispatcher;
+    $Net::SNMP::DISPATCHER = $self->_dispatcher;
     warn "[SNMP] >>> $key $method(@$list)\n" if DEBUG;
-    $method .= '_request';
     Scalar::Util::weaken($self);
+    $method = $SNMP_METHOD{$method} || "$method\_request";
     $success = $session->$method(
         varbindlist => $list,
         callback => sub {
