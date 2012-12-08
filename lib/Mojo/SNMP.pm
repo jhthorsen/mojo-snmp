@@ -15,7 +15,8 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
     my @response;
 
     $snmp->on(response => sub {
-        my($snmp, $session) = @_;
+        my($snmp, $session, $args) = @_;
+        warn "Got response from $args->{hostname} on $args->{method}(@{$args->{request}})...\n";
         push @response, $session->var_bind_list;
     });
 
@@ -75,11 +76,13 @@ $Net::SNMP::DISPATCHER = $Net::SNMP::DISPATCHER; # avoid warning
 =head2 error
 
     $self->on(error => sub {
-        my($self, $str, $session) = @_;
+        my($self, $str, $session, $args) = @_;
     });
 
 Emitted on errors which may occur. C<$session> is set if the error is a result
 of a L<Net::SNMP> method, such as L<get_request()|Net::SNMP/get_request>.
+
+See L</response> for C<$args> description.
 
 =head2 finish
 
@@ -92,11 +95,18 @@ Emitted when all hosts have completed.
 =head2 response
 
     $self->on(response => sub {
-        my($self, $session) = @_;
+        my($self, $session, $args) = @_;
     });
 
 Called each time a host responds. The C<$session> is the current L<Net::SNMP>
-object.
+object. C<$args> is a hash ref with the arguments given to L</prepare>, with
+some additional information:
+
+    {
+        method => $str, # get, get_next, ...
+        request => [$oid, ...],
+        # ...
+    }
 
 =head2 timeout
 
@@ -200,25 +210,27 @@ sub prepare {
     my $self = shift;
     my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
     my $args = ref $_[0] eq 'HASH' ? shift : {};
+    my %args = %$args;
 
     $hosts = [ sort keys %{ $self->_pool } ] if $hosts->[0] and $hosts->[0] eq '*';
 
-    defined $args->{$_} or $args->{$_} = $self->defaults->{$_} for keys %{ $self->defaults };
-    $args->{version} = $self->_normalize_version($args->{version} || '');
-    delete $args->{$_} for @{ $EXCLUDE{$args->{version}} };
+    defined $args{$_} or $args{$_} = $self->defaults->{$_} for keys %{ $self->defaults };
+    $args{version} = $self->_normalize_version($args{version} || '');
+    delete $args{$_} for @{ $EXCLUDE{$args{version}} };
+    delete $args{stash};
 
     HOST:
     for my $key (@$hosts) {
         my($host) = $key =~ /^([^|]+)/;
-        local $args->{hostname} = $host;
-        my $key = $key eq $host ? $self->_calculate_pool_key($args) : $key;
-        $self->_pool->{$key} ||= $self->_new_session($args) or next HOST;
+        local $args{hostname} = $host;
+        my $key = $key eq $host ? $self->_calculate_pool_key(\%args) : $key;
+        $self->_pool->{$key} ||= $self->_new_session(\%args) or next HOST;
 
         local @_ = @_;
         while(@_) {
             my $method = shift;
             my $oid = ref $_[0] eq 'ARRAY' ? shift : [shift];
-            push @{ $self->_queue }, [ $key, "$method\_request", $oid ]
+            push @{ $self->_queue }, [ $key, $method, $oid, $args ]
         }
     }
 
@@ -248,25 +260,26 @@ sub _new_session {
 sub _prepare_request {
     my $self = shift;
     my $item = shift @{ $self->_queue } or return;
-    my($key, $method, $list) = @$item;
+    my($key, $method, $list, $args) = @$item;
     my $session = $self->_pool->{$key};
     my $success;
 
     # dispatch to our mojo based dispatcher
     local $Net::SNMP::DISPATCHER = $self->_dispatcher;
-
     warn "[SNMP] >>> $key $method(@$list)\n" if DEBUG;
+    $method .= '_request';
     Scalar::Util::weaken($self);
     $success = $session->$method(
         varbindlist => $list,
         callback => sub {
+            local @$args{qw/ method request /} = @$item[1, 2];
             if($_[0]->var_bind_list) {
                 warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
-                $self->emit_safe(response => $_[0]);
+                $self->emit_safe(response => $_[0], $args);
             }
             else {
                 warn "[SNMP] <<< $key @{[$_[0]->error]}\n" if DEBUG;
-                $self->emit_safe(error => $_[0]->error, $_[0]);
+                $self->emit_safe(error => $_[0]->error, $_[0], $args);
             }
             $self->_prepare_request;
             $self->_finish unless $self->_dispatcher->connections;

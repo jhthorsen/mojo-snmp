@@ -1,5 +1,8 @@
 Revision history for Mojo-SNMP
 
+0.03
+       * "response" and "error" events also receive prepare() args.
+
 0.0201   Thu Oct 25 21:20:42 2012
        * Need to ignore ./local
 

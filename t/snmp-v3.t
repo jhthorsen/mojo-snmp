@@ -8,6 +8,7 @@ my(@response, @error, $timeout, $finish);
 
 plan skip_all => 'Crypt::DES is required' unless eval 'require Crypt::DES; 1';
 plan skip_all => 'Digest::HMAC is required' unless eval 'require Digest::HMAC; 1';
+plan skip_all => 'Digest::SHA1 is required' unless eval 'require Digest::SHA1; 1';
 
 $snmp->concurrent(0); # required to set up the queue
 $snmp->defaults({ timeout => 1, community => 'public', username => 'foo' });
@@ -21,10 +22,10 @@ is $snmp->{_setup}, 2, 'prepare was called twice (stupid test)';
 is $snmp->{_requests}, 0, 'and zero requests were prepared';
 
 is_deeply($snmp->_queue, [
-    [ '1.2.3.5|v3||foo', 'get_request', ['1.3.6.1.2.1.1.5.0'] ],
+    [ '1.2.3.5|v3||foo', 'get', ['1.3.6.1.2.1.1.5.0'], { version => 3 } ],
 
     # *
-    [ '1.2.3.5|v3||foo', 'get_next_request', ['1.2.3'] ],
+    [ '1.2.3.5|v3||foo', 'get_next', ['1.2.3'], {} ],
 ],
 'queue is set up');
 

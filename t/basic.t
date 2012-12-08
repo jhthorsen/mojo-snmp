@@ -40,24 +40,27 @@ ok $snmp->_pool->{'127.0.0.1|v2c|foo|'}, '127.0.0.1 v2c foo';
 $snmp->prepare('127.0.0.1', { retries => '2', community => 'bar', version => 'snmpv1' });
 ok $snmp->_pool->{'127.0.0.1|v1|bar|'}, '127.0.0.1 v1 bar';
 
-$snmp->prepare('*', get_next => '1.2.3');
+$snmp->prepare('*', { stash => 123 }, get_next => '1.2.3');
 
 is $snmp->{_setup}, 5, 'prepare was called six times (stupid test)';
 is $snmp->{_requests}, 0, 'and zero requests was prepared';
 
-is_deeply($snmp->_queue, [
-    [ '1.2.3.4|v2c|public|', 'get_request', ['1.3.6.1.2.1.1.4.0'] ],
-    [ '1.2.3.5|v2c|public|', 'get_next_request', ['1.3.6.1.2.1.1.6.0'] ],
-    [ '127.0.0.1|v2c|foo|', 'get_request', [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /] ],
-    [ '127.0.0.1|v2c|foo|', 'get_next_request', [qw/ 1.3.6.1.2.1 /] ],
+is_deeply(
+    $snmp->_queue,
+    [
+        [ '1.2.3.4|v2c|public|', 'get', ['1.3.6.1.2.1.1.4.0'], { version => '2c' } ],
+        [ '1.2.3.5|v2c|public|', 'get_next', ['1.3.6.1.2.1.1.6.0'], {} ],
+        [ '127.0.0.1|v2c|foo|', 'get', [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /], { version => '2', community => 'foo' } ],
+        [ '127.0.0.1|v2c|foo|', 'get_next', [qw/ 1.3.6.1.2.1 /], { version => '2', community => 'foo' } ],
 
-    # *
-    [ '1.2.3.4|v2c|public|', 'get_next_request', ['1.2.3'] ],
-    [ '1.2.3.5|v2c|public|', 'get_next_request', ['1.2.3'] ],
-    [ '127.0.0.1|v1|bar|', 'get_next_request', ['1.2.3'] ],
-    [ '127.0.0.1|v2c|foo|', 'get_next_request', ['1.2.3'] ],
-],
-'queue is set up');
+        # *
+        [ '1.2.3.4|v2c|public|', 'get_next', ['1.2.3'], { stash => 123 } ],
+        [ '1.2.3.5|v2c|public|', 'get_next', ['1.2.3'], { stash => 123 } ],
+        [ '127.0.0.1|v1|bar|', 'get_next', ['1.2.3'], { stash => 123 } ],
+        [ '127.0.0.1|v2c|foo|', 'get_next', ['1.2.3'], { stash => 123 } ],
+    ],
+    'queue is set up'
+);
 
 memory_cycle_ok($snmp) if TEST_MEMORY;
 my $net_snmp = Net::SNMP->new(nonblocking => 1);

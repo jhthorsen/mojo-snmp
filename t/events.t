@@ -21,7 +21,7 @@ $snmp->prepare('1.2.3.4', { version => '2c' }, get => [qw/ 1.3.6.1.2.1.1.4.0 /])
 
 memory_cycle_ok($snmp) if TEST_MEMORY;
 is_deeply($snmp->_queue, [
-    [ '1.2.3.4|v2c|public|', 'get_request', ['1.3.6.1.2.1.1.4.0'] ],
+    [ '1.2.3.4|v2c|public|', 'get', ['1.3.6.1.2.1.1.4.0'], { version => '2c' } ],
 ],
 'queue is set up');
 
