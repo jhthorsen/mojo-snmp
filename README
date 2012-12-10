@@ -2,7 +2,7 @@ NAME
     Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 VERSION
-    0.0201
+    0.03
 
 SYNOPSIS
         use Mojo::SNMP;
@@ -10,7 +10,8 @@ SYNOPSIS
         my @response;
 
         $snmp->on(response => sub {
-            my($snmp, $session) = @_;
+            my($snmp, $session, $args) = @_;
+            warn "Got response from $args->{hostname} on $args->{method}(@{$args->{request}})...\n";
             push @response, $session->var_bind_list;
         });
 
@@ -48,11 +49,13 @@ DESCRIPTION
 EVENTS
   error
         $self->on(error => sub {
-            my($self, $str, $session) = @_;
+            my($self, $str, $session, $args) = @_;
         });
 
     Emitted on errors which may occur. $session is set if the error is a
     result of a Net::SNMP method, such as get_request().
+
+    See "response" for $args description.
 
   finish
         $self->on(finish => sub {
@@ -63,11 +66,18 @@ EVENTS
 
   response
         $self->on(response => sub {
-            my($self, $session) = @_;
+            my($self, $session, $args) = @_;
         });
 
     Called each time a host responds. The $session is the current Net::SNMP
-    object.
+    object. $args is a hash ref with the arguments given to "prepare", with
+    some additional information:
+
+        {
+            method => $str, # get, get_next, ...
+            request => [$oid, ...],
+            # ...
+        }
 
   timeout
         $self->on(timeout => sub {
@@ -126,6 +136,7 @@ METHODS
             set
             get_bulk
             inform
+            walk
             ...
 
         The special hostname "*" will apply the given operation to all
@@ -141,6 +152,10 @@ METHODS
         Note: To get the "OCTET_STRING" constant and friends you need to do:
 
             use Net::SNMP ':asn1';
+
+        Note: "walk" is a custom method provided by this module. It will run
+        "get_next_request" until the next oid retrieved does not match the
+        base OID or if the tree is exhausted.
 
   wait
     This is useful if you want to block your code: "wait()" starts the
