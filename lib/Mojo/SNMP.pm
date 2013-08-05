@@ -190,6 +190,35 @@ has _queue => sub { +[] };
 
 =head1 METHODS
 
+=head2 get
+
+=head2 get_next
+
+=head2 set
+
+=head2 get_bulk
+
+=head2 walk
+
+  $self->get($host, $args, \@oids, \&callback);
+  $self->get_next($host, $args, \@oids, \&callback);
+  $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], \&callback);
+  $self->get_bulk($host, $args, \@oids, \&callback);
+  $self->walk($host, $args, \@oids, \&callback);
+
+=cut
+
+for my $method (qw/ get get_next set get_bulk walk /) {
+  eval <<"  CODE" or die $@;
+    sub $method {
+      my(\$self, \$host) = (shift, shift);
+      my \$args = ref \$_[0] eq 'HASH' ? shift : {};
+      \$self->prepare(\$host, \$args, $method => @_);
+    }
+    1;
+  CODE
+}
+
 =head2 prepare
 
   $self = $self->prepare($host, \%args, ...);
@@ -246,6 +275,7 @@ base OID or if the tree is exhausted.
 =cut
 
 sub prepare {
+  my $cb = ref $_[-1] eq 'CODE' ? pop : undef; # internal usage. might change
   my $self = shift;
   my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
   my $args = ref $_[0] eq 'HASH' ? shift : {};
@@ -269,7 +299,8 @@ sub prepare {
     while(@_) {
       my $method = shift;
       my $oid = ref $_[0] eq 'ARRAY' ? shift : [shift];
-      push @{ $self->_queue }, [ $key, $method, $oid, $args ]
+      warn join '][', $key, $method, @$oid, $args, $cb;
+      push @{ $self->_queue }, [ $key, $method, $oid, $args, $cb ];
     }
   }
 
@@ -291,7 +322,7 @@ sub _new_session {
   my($self, $args) = @_;
   my($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
 
-  warn "[SNMP] New session $args->{hostname}: $error\n" if DEBUG;
+  warn "[SNMP] New session $args->{hostname}: ", ($error || 'OK'), "\n" if DEBUG;
   $self->emit(error => "$args->{hostname}: $error") if $error;
   $session;
 }
@@ -299,13 +330,14 @@ sub _new_session {
 sub _prepare_request {
   my $self = shift;
   my $item = shift @{ $self->_queue } or return;
-  my($key, $method, $list, $args) = @$item;
+  my($key, $method, $list, $args, $cb) = @$item;
   my $session = $self->_pool->{$key};
   my $success;
 
   # dispatch to our mojo based dispatcher
   $Net::SNMP::DISPATCHER = $self->_dispatcher;
   warn "[SNMP] >>> $key $method(@$list)\n" if DEBUG;
+
   Scalar::Util::weaken($self);
   $method = $SNMP_METHOD{$method} || "$method\_request";
   $success = $session->$method(
@@ -314,11 +346,11 @@ sub _prepare_request {
       local @$args{qw/ method request /} = @$item[1, 2];
       if($_[0]->var_bind_list) {
         warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
-        $self->emit_safe(response => $_[0], $args);
+        $cb ? $self->$cb('', $_[0]) : $self->emit_safe(response => $_[0], $args);
       }
       else {
         warn "[SNMP] <<< $key @{[$_[0]->error]}\n" if DEBUG;
-        $self->emit_safe(error => $_[0]->error, $_[0], $args);
+        $cb ? $self->$cb($_[0]->error, undef) : $self->emit_safe(error => $_[0]->error, $_[0], $args);
       }
       $self->_prepare_request;
       $self->_finish unless $self->_dispatcher->connections;

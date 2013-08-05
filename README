@@ -108,6 +108,17 @@ ATTRIBUTES
     Holds an instance of Mojo::IOLoop.
 
 METHODS
+  get
+  get_next
+  set
+  get_bulk
+  walk
+      $self->get($host, $args, \@oids, \&callback);
+      $self->get_next($host, $args, \@oids, \&callback);
+      $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], \&callback);
+      $self->get_bulk($host, $args, \@oids, \&callback);
+      $self->walk($host, $args, \@oids, \&callback);
+
   prepare
       $self = $self->prepare($host, \%args, ...);
       $self = $self->prepare(\@hosts, \%args, ...);
