@@ -22,9 +22,9 @@ is $response[0]{'1.2.42.42'}, 'noSuchObject', '1.2.42.42 does not exist';
 
 @response = ();
 $snmp->prepare('127.0.0.1', { timeout => 1 },
-    get => [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /],
-    get => [qw/ 1.3.6.1.2.1.1.4.0 /],
-    get_next => [qw/ 1.3.6.1.2.1 /],
+  get => [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /],
+  get => [qw/ 1.3.6.1.2.1.1.4.0 /],
+  get_next => [qw/ 1.3.6.1.2.1 /],
 )->wait;
 
 is $finish, 2, 'finish event was emitted';
