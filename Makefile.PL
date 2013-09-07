@@ -1,19 +1,55 @@
-use inc::Module::Install;
+use ExtUtils::MakeMaker;
+WriteMakefile(
+  NAME => 'Mojo::SNMP',
+  ABSTRACT_FROM => 'lib/Mojo/SNMP.pm',
+  VERSION_FROM => 'lib/Mojo/SNMP.pm',
+  AUTHOR => 'Jan Henning Thorsen <jhthorsen@cpan.org>',
+  LICENSE => 'perl',
+  PREREQ_PM => {
+    '::usr::lib::perl5::auto::Net::SSLeay::autosplit.ix' => '0',
+    '::usr::lib::perl5::auto::Net::SSLeay::randomize.al' => '0',
+    '::usr::lib::perl::5.14::auto::POSIX::autosplit.ix' => '0',
+    '::usr::lib::perl::5.14::auto::POSIX::load_imports.al' => '0',
+    'EV' => '4.11',
+    'IO::Socket::IP' => '0.22',
+    'IO::Socket::SSL' => '1.94',
+    'Mojo::Base' => '0',
+    'Mojo::EventEmitter' => '0',
+    'Mojo::Exception' => '0',
+    'Mojo::IOLoop' => '0',
+    'Mojo::IOLoop::Client' => '0',
+    'Mojo::IOLoop::Delay' => '0',
+    'Mojo::IOLoop::Server' => '0',
+    'Mojo::IOLoop::Stream' => '0',
+    'Mojo::Loader' => '0',
+    'Mojo::Reactor' => '0',
+    'Mojo::Reactor::EV' => '0',
+    'Mojo::Reactor::Poll' => '0',
+    'Mojo::Util' => '0',
+    'Net::SNMP::Message' => 'v3.0.1',
+    'Net::SNMP::MessageProcessing' => 'v3.0.1',
+    'Net::SNMP::PDU' => 'v3.0.1',
+    'Net::SNMP::Transport' => 'v3.0.0',
+    'Net::SSLeay' => '1.48',
+    'URI' => '1.60',
+    'URI::Escape' => '3.31',
+    'common::sense' => '3.6',
+  },
+  BUILD_REQUIRES => {
 
-name q(Mojo-SNMP);
-all_from q(lib/Mojo/SNMP.pm);
-
-recommends q(Test::Compile) => 0;
-recommends q(Crypt::DES) => 0;
-recommends q(Digest::HMAC) => 0; # for SNMPv3
-requires q(Errno) => 1.13;
-requires q(Mojolicious) => 3.38;
-requires q(Net::SNMP) => 0; # tested with v6.0.1
-requires q(Scalar::Util) => 1.20;
-
-bugtracker q(http://rt.cpan.org/NoAuth/Bugs.html?Dist=Mojo-SNMP);
-homepage q(https://metacpan.org/release/Mojo-SNMP);
-repository q(git://github.com/jhthorsen/mojo-snmp.git);
-
-auto_install;
-WriteAll;
+  },
+  META_MERGE => {
+    resources => {
+      license => 'http://dev.perl.org/licenses/',
+      homepage => 'https://metacpan.org/release/Mojo-SNMP',
+      bugtracker => 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=Mojo-SNMP',
+      repository => 'https://github.com/jhthorsen/mojo-snmp',
+     #MailingList => 'some-mailing@list.org',
+    },
+  },
+  test => {
+    TESTS => 't/*.t',
+  },
+  #MIN_PERL_VERSION => 5.10,
+  #EXE_FILES => ['bin/my-app'],
+);
