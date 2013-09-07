@@ -93,7 +93,7 @@ $guard = 10000;
 $snmp->ioloop->one_tick while $guard--;
 is $finish, 1, 'on(finish) was triggered';
 
-$snmp->master_timeout(-1);
+$snmp->master_timeout(0.000001);
 $snmp->_setup;
 $guard = 10000;
 $snmp->ioloop->one_tick while $guard--;

@@ -339,16 +339,14 @@ sub _finish {
 sub _setup {
     my $self = shift;
     my $timeout = $self->master_timeout or return;
-    my $ioloop = $self->ioloop;
     my $tid;
 
     warn "[SNMP] Timeout: $timeout\n" if DEBUG;
-    Scalar::Util::weaken($ioloop);
     Scalar::Util::weaken($self);
 
-    $tid = $ioloop->timer($timeout => sub {
+    $tid = $self->ioloop->timer($timeout => sub {
         warn "[SNMP] Timeout\n" if DEBUG;
-        $ioloop->remove($tid);
+        $self->ioloop->remove($tid);
         $self->emit_safe('timeout');
         $self->{_setup} = 0;
     });
