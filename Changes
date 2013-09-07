@@ -1,5 +1,10 @@
 Revision history for Mojo-SNMP
 
+0.0301   Sat Sep  7 10:44:22 2013
+       * Fix Makefile.PL
+       * Fix t/basic.t
+       * Change indentation to two spaces.
+
 0.03     Mon Dec 10 20:11:23 2012
        * Add support for prepare($host, ..., walk => $oid);
        * Change "response" and "error" events also receive prepare() args.
