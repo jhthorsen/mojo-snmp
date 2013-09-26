@@ -86,7 +86,7 @@ __PACKAGE__->add_custom_request_method(bulk_walk => sub {
   $callback = sub {
       my($session) = @_;
       my $res = $session->var_bind_list or return $end->();
-      my @sortres = $session->var_bind_names() or return $end->(); #Espen
+      my @sortres = $session->var_bind_names() or return $end->();
       my $types = $session->var_bind_types;
       my $next = $sortres[-1];
 
