@@ -2,7 +2,7 @@ NAME
     Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 VERSION
-    0.0301
+    0.04
 
 SYNOPSIS
       use Mojo::SNMP;
@@ -45,6 +45,29 @@ DESCRIPTION
     called SNMP::Effective. Reason for the rewrite is that I'm using the
     framework Mojolicious which includes an awesome IO loop which allow me
     to do cool stuff inside my web server.
+
+CUSTOM SNMP REQUEST METHODS
+    Net::SNMP provide methods to retrieve data from the SNMP agent, such as
+    get_next(). It is possible to add custom methods if you find yourself
+    doing the same complicated logic over and over again. Such methods can
+    be added using "add_custom_request_method".
+
+    There are two custom methods bundled to this package:
+
+    *   bulk_walk
+
+        This method will run "get_bulk_request" until it receives an oid
+        which does not match the base OID. maxrepetitions is set to 10 by
+        default, but could be overrided by maxrepetitions inside %args.
+
+        Example:
+
+          $self->prepare('192.168.0.1' => { maxrepetitions => 25 }, bulk_walk => [$oid, ...]);
+
+    *   walk
+
+        This method will run "get_next_request" until the next oid retrieved
+        does not match the base OID or if the tree is exhausted.
 
 EVENTS
   error
@@ -137,25 +160,22 @@ METHODS
           get_bulk
           inform
           walk
+          bulk_walk
           ...
 
         The special hostname "*" will apply the given operation to all
         previously defined hosts.
 
-        Examples:
+    Examples:
 
-          $self->prepare('192.168.0.1' => { version => 'v2c' }, get_next => [$oid, ...]);
-          $self->prepare('192.168.0.1' => { version => 'v3' }, get => [$oid, ...]);
-          $self->prepare(localhost => set => [ $oid => OCTET_STRING, $value, ... ]);
-          $self->prepare('*' => get => [ $oid ... ]);
+      $self->prepare('192.168.0.1' => { version => 'v2c' }, get_next => [$oid, ...]);
+      $self->prepare('192.168.0.1' => { version => 'v3' }, get => [$oid, ...]);
+      $self->prepare(localhost => set => [ $oid => OCTET_STRING, $value, ... ]);
+      $self->prepare('*' => get => [ $oid ... ]);
 
-        Note: To get the "OCTET_STRING" constant and friends you need to do:
+    Note: To get the "OCTET_STRING" constant and friends you need to do:
 
-          use Net::SNMP ':asn1';
-
-        Note: "walk" is a custom method provided by this module. It will run
-        "get_next_request" until the next oid retrieved does not match the
-        base OID or if the tree is exhausted.
+      use Net::SNMP ':asn1';
 
   wait
     This is useful if you want to block your code: "wait()" starts the
@@ -165,6 +185,21 @@ METHODS
       $snmp->prepare(...)->wait; # blocks while retrieving data
       # ... your program continues after the SNMP operations have finished.
 
+  add_custom_request_method
+      $self->add_custom_request_method(name => sub {
+        my($session, %args) = @_;
+        # do custom stuff..
+      });
+
+    This method can be used to add custom Net::SNMP request methods. See the
+    source code for an example on how to do "walk".
+
+    NOTE: This method will also replace any method, meaning the code below
+    will call the custom callback instead of "get_next_request" in
+    Net::SNMP.
+
+      $self->add_custom_request_method(get_next => $custom_callback);
+
 COPYRIGHT & LICENSE
     This library is free software. You can redistribute it and/or modify it
     under the same terms as Perl itself.
@@ -173,4 +208,6 @@ AUTHOR
     Jan Henning Thorsen - "jhthorsen@cpan.org"
 
     Joshua Keroes - "joshua@cpan.org"
+
+    Espen Tallaksen
 

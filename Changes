@@ -1,6 +1,6 @@
 Revision history for Mojo-SNMP
 
-0.04
+0.04     Thu Sep 26 15:36:37 2013
        * Add support for passing maxrepetitions to prepare()
        * Add add_custom_request_method() method
        * Add custom method bulk_walk() - Espen Tallaksen
