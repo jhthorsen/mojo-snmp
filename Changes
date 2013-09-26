@@ -2,6 +2,7 @@ Revision history for Mojo-SNMP
 
 0.04
        * Add support for passing maxrepetitions to prepare()
+       * Add add_custom_request_method() method
 
 0.0301   Sat Sep  7 10:44:22 2013
        * Fix Makefile.PL

@@ -71,39 +71,39 @@ my %EXCLUDE = (
   v3 => [qw/ community /],
 );
 
-my %SNMP_METHOD = (
-  walk => sub {
-    my($session, %args) = @_;
-    my $base_oid = $args{varbindlist}[0];
-    my $last = $args{callback};
-    my($callback, $end, %tree, %types);
+my %SNMP_METHOD;
 
-    $end = sub {
-      $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
-      $session->$last;
-    };
+__PACKAGE__->add_custom_request_method(walk => sub {
+  my($session, %args) = @_;
+  my $base_oid = $args{varbindlist}[0];
+  my $last = $args{callback};
+  my($callback, $end, %tree, %types);
 
-    $callback = sub {
-      my($session) = @_;
-      my $res = $session->var_bind_list or return $end->();
-      my $types = $session->var_bind_types;
-      my @next;
+  $end = sub {
+    $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+    $session->$last;
+  };
 
-      for my $oid (keys %$res) {
-        if(Net::SNMP::oid_base_match($base_oid, $oid)) {
-          $types{$oid} = $types->{$oid};
-          $tree{$oid} = $res->{$oid};
-          push @next, $oid;
-        }
+  $callback = sub {
+    my($session) = @_;
+    my $res = $session->var_bind_list or return $end->();
+    my $types = $session->var_bind_types;
+    my @next;
+
+    for my $oid (keys %$res) {
+      if(Net::SNMP::oid_base_match($base_oid, $oid)) {
+        $types{$oid} = $types->{$oid};
+        $tree{$oid} = $res->{$oid};
+        push @next, $oid;
       }
+    }
 
-      return $end->() unless @next;
-      return $session->get_next_request(varbindlist => \@next, callback => $callback);
-    };
+    return $end->() unless @next;
+    return $session->get_next_request(varbindlist => \@next, callback => $callback);
+  };
 
-    $session->get_next_request(varbindlist => [$base_oid], callback => $callback);
-  },
-);
+  $session->get_next_request(varbindlist => [$base_oid], callback => $callback);
+});
 
 $Net::SNMP::DISPATCHER = $Net::SNMP::DISPATCHER; # avoid warning
 
@@ -312,6 +312,7 @@ sub _prepare_request {
   $method = $SNMP_METHOD{$method} || "$method\_request";
   $success = $session->$method(
     $method =~ /bulk/ ? (maxrepetitions => $args->{maxrepetitions} || MAXREPETITIONS) : (),
+    ref $method ? (%$args) : (),
     varbindlist => $list,
     callback => sub {
       local @$args{qw/ method request /} = @$item[1, 2];
@@ -383,6 +384,29 @@ sub wait {
   $self->once(timeout => $stop);
   $ioloop->start;
   $self;
+}
+
+=head2 add_custom_request_method
+
+  $self->add_custom_request_method(name => sub {
+    my($session, %args) = @_;
+    # do custom stuff..
+  });
+
+This method can be used to add custom L<Net::SNMP> request methods. See the
+source code for an example on how to do "walk".
+
+NOTE: This method will also replace any method, meaning the code below will
+call the custom callback instead of L<Net::SNMP/get_next_request>.
+
+  $self->add_custom_request_method(get_next => $custom_callback);
+
+=cut
+
+sub add_custom_request_method {
+  my($class, $name, $cb) = @_;
+  $SNMP_METHOD{$name} = $cb;
+  $class;
 }
 
 =head1 COPYRIGHT & LICENSE
