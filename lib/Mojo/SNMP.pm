@@ -52,6 +52,34 @@ called L<SNMP::Effective>. Reason for the rewrite is that I'm using the
 framework L<Mojolicious> which includes an awesome IO loop which allow me to
 do cool stuff inside my web server.
 
+=head1 CUSTOM SNMP REQUEST METHODS
+
+L<Net::SNMP> provide methods to retrieve data from the SNMP agent, such as
+L<get_next()|Net::SNMP/get_next>. It is possible to add custom methods if
+you find yourself doing the same complicated logic over and over again.
+Such methods can be added using L</add_custom_request_method>.
+
+There are two custom methods bundled to this package:
+
+=over 4
+
+=item * bulk_walk
+
+This method will run C<get_bulk_request> until it receives an oid which does
+not match the base OID. maxrepetitions is set to 10 by default, but could be
+overrided by maxrepetitions inside C<%args>.
+
+Example:
+
+  $self->prepare('192.168.0.1' => { maxrepetitions => 25 }, bulk_walk => [$oid, ...]);
+
+=item * walk
+
+This method will run C<get_next_request> until the next oid retrieved does
+not match the base OID or if the tree is exhausted.
+
+=back
+
 =cut
 
 use Mojo::Base 'Mojo::EventEmitter';
@@ -254,10 +282,13 @@ L<Net::SNMP>, but without "_request" at end:
   get_bulk
   inform
   walk
+  bulk_walk
   ...
 
 The special hostname "*" will apply the given operation to all previously
 defined hosts.
+
+=back
 
 Examples:
 
@@ -269,12 +300,6 @@ Examples:
 Note: To get the C<OCTET_STRING> constant and friends you need to do:
 
   use Net::SNMP ':asn1';
-
-Note: "walk" is a custom method provided by this module. It will run
-C<get_next_request> until the next oid retrieved does not match the
-base OID or if the tree is exhausted.
-
-=back
 
 =cut
 
