@@ -76,6 +76,7 @@ __PACKAGE__->add_custom_request_method(bulk_walk => sub {
   my($session, %args) = @_;
   my $base_oid = $args{varbindlist}[0];
   my $last = $args{callback};
+  my $maxrepetitions = $args{maxrepetitions} || MAXREPETITIONS;
   my($callback, $end, %tree, %types);
 
   $end = sub {
@@ -97,10 +98,10 @@ __PACKAGE__->add_custom_request_method(bulk_walk => sub {
       }
 
       return $end->() unless $next;
-      return $session->get_bulk_request(maxrepetitions => $args{maxrepetitions}, varbindlist => [$next], callback => $callback);
+      return $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$next], callback => $callback);
   };
 
-  $session->get_bulk_request(maxrepetitions => $args{maxrepetitions}, varbindlist => [$base_oid], callback => $callback);
+  $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$base_oid], callback => $callback);
 });
 
 __PACKAGE__->add_custom_request_method(walk => sub {

@@ -20,4 +20,14 @@ my %args;
   is $args{maxrepetitions}, 2, 'maxrepetitions=2';
 }
 
+{
+  $snmp->prepare('1.2.3.4', { version => '2c', }, bulk_walk => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+  is_deeply(
+    [ sort keys %args ],
+    [ qw( callback maxrepetitions varbindlist ) ],
+    'get_bulk was called with callback, maxrepetitions and varbindlist',
+  );
+  is $args{maxrepetitions}, 10, 'default maxrepetitions';
+}
+
 done_testing;
