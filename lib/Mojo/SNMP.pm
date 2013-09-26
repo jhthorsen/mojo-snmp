@@ -72,6 +72,36 @@ my %EXCLUDE = (
 );
 
 my %SNMP_METHOD;
+__PACKAGE__->add_custom_request_method(bulk_walk => sub {
+  my($session, %args) = @_;
+  my $base_oid = $args{varbindlist}[0];
+  my $last = $args{callback};
+  my($callback, $end, %tree, %types);
+
+  $end = sub {
+    $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+    $session->$last;
+  };
+
+  $callback = sub {
+      my($session) = @_;
+      my $res = $session->var_bind_list or return $end->();
+      my @sortres = $session->var_bind_names() or return $end->(); #Espen
+      my $types = $session->var_bind_types;
+      my $next = $sortres[-1];
+
+      for my $oid (@sortres) {
+          return $end->() unless Net::SNMP::oid_base_match($base_oid, $oid);
+          $types{$oid} = $types->{$oid};
+          $tree{$oid} = $res->{$oid};
+      }
+
+      return $end->() unless $next;
+      return $session->get_bulk_request(maxrepetitions => $args{maxrepetitions}, varbindlist => [$next], callback => $callback);
+  };
+
+  $session->get_bulk_request(maxrepetitions => $args{maxrepetitions}, varbindlist => [$base_oid], callback => $callback);
+});
 
 __PACKAGE__->add_custom_request_method(walk => sub {
   my($session, %args) = @_;
@@ -419,6 +449,8 @@ it under the same terms as Perl itself.
 Jan Henning Thorsen - C<jhthorsen@cpan.org>
 
 Joshua Keroes - C<joshua@cpan.org>
+
+Espen Tallaksen
 
 =cut
 
