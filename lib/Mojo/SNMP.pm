@@ -60,9 +60,11 @@ use Mojo::SNMP::Dispatcher;
 use Net::SNMP ();
 use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
+use constant MAXREPETITIONS => 10;
 
 our $VERSION = '0.0301';
 
+my @EXCLUDE_METHOD_ARGS = qw( maxrepetitions );
 my %EXCLUDE = (
   v1 => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
   v2c => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
@@ -255,7 +257,7 @@ sub prepare {
 
   defined $args{$_} or $args{$_} = $self->defaults->{$_} for keys %{ $self->defaults };
   $args{version} = $self->_normalize_version($args{version} || '');
-  delete $args{$_} for @{ $EXCLUDE{$args{version}} };
+  delete $args{$_} for @{ $EXCLUDE{$args{version}} }, @EXCLUDE_METHOD_ARGS;
   delete $args{stash};
 
   HOST:
@@ -309,6 +311,7 @@ sub _prepare_request {
   Scalar::Util::weaken($self);
   $method = $SNMP_METHOD{$method} || "$method\_request";
   $success = $session->$method(
+    $method =~ /bulk/ ? (maxrepetitions => $args->{maxrepetitions} || MAXREPETITIONS) : (),
     varbindlist => $list,
     callback => sub {
       local @$args{qw/ method request /} = @$item[1, 2];
