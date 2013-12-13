@@ -1,5 +1,9 @@
 Revision history for Mojo-SNMP
 
+0.05     Fri Dec 13 13:03:44 2013
+       * Add methods with callbacks as an alternative to "response" event.
+       * Cleaned up Makefile.PL
+
 0.04     Thu Sep 26 15:36:37 2013
        * Add support for passing maxrepetitions to prepare()
        * Add add_custom_request_method() method

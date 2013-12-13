@@ -48,16 +48,16 @@ is $snmp->{_requests}, 0, 'and zero requests was prepared';
 is_deeply(
   $snmp->_queue,
   [
-    [ '1.2.3.4|v2c|public|', 'get', ['1.3.6.1.2.1.1.4.0'], { version => '2c' } ],
-    [ '1.2.3.5|v2c|public|', 'get_next', ['1.3.6.1.2.1.1.6.0'], {} ],
-    [ '127.0.0.1|v2c|foo|', 'get', [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /], { version => '2', community => 'foo' } ],
-    [ '127.0.0.1|v2c|foo|', 'get_next', [qw/ 1.3.6.1.2.1 /], { version => '2', community => 'foo' } ],
+    [ '1.2.3.4|v2c|public|', 'get', ['1.3.6.1.2.1.1.4.0'], { version => '2c' }, undef ],
+    [ '1.2.3.5|v2c|public|', 'get_next', ['1.3.6.1.2.1.1.6.0'], {}, undef ],
+    [ '127.0.0.1|v2c|foo|', 'get', [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /], { version => '2', community => 'foo' }, undef ],
+    [ '127.0.0.1|v2c|foo|', 'get_next', [qw/ 1.3.6.1.2.1 /], { version => '2', community => 'foo' }, undef ],
 
     # *
-    [ '1.2.3.4|v2c|public|', 'get_next', ['1.2.3'], { stash => 123 } ],
-    [ '1.2.3.5|v2c|public|', 'get_next', ['1.2.3'], { stash => 123 } ],
-    [ '127.0.0.1|v1|bar|', 'get_next', ['1.2.3'], { stash => 123 } ],
-    [ '127.0.0.1|v2c|foo|', 'get_next', ['1.2.3'], { stash => 123 } ],
+    [ '1.2.3.4|v2c|public|', 'get_next', ['1.2.3'], { stash => 123 }, undef ],
+    [ '1.2.3.5|v2c|public|', 'get_next', ['1.2.3'], { stash => 123 }, undef ],
+    [ '127.0.0.1|v1|bar|', 'get_next', ['1.2.3'], { stash => 123 }, undef ],
+    [ '127.0.0.1|v2c|foo|', 'get_next', ['1.2.3'], { stash => 123 }, undef ],
   ],
   'queue is set up'
 );

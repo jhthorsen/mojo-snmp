@@ -6,7 +6,7 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 =head1 VERSION
 
-0.04
+0.05
 
 =head1 SYNOPSIS
 
@@ -90,7 +90,7 @@ use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
 use constant MAXREPETITIONS => 10;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 my @EXCLUDE_METHOD_ARGS = qw( maxrepetitions );
 my %EXCLUDE = (
@@ -251,6 +251,54 @@ has _queue => sub { +[] };
 
 =head1 METHODS
 
+=head2 get
+
+  $self->get($host, $args, \@oids, \&callback);
+
+Will call the C<&callback> when data is retrieved, instead of emitting the
+L</response> event.
+
+=head2 get_bulk
+
+  $self->get_bulk($host, $args, \@oids, \&callback);
+
+Will call the C<&callback> when data is retrieved, instead of emitting the
+L</response> event. C<$args> is optional.
+
+=head2 get_next
+
+  $self->get_next($host, $args, \@oids, \&callback);
+
+Will call the C<&callback> when data is retrieved, instead of emitting the
+L</response> event. C<$args> is optional.
+
+=head2 set
+
+  $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], \&callback);
+
+Will call the C<&callback> when data is set, instead of emitting the
+L</response> event. C<$args> is optional.
+
+=head2 walk
+
+  $self->walk($host, $args, \@oids, \&callback);
+
+Will call the C<&callback> when data is retrieved, instead of emitting the
+L</response> event. C<$args> is optional.
+
+=cut
+
+for my $method (qw/ get get_bulk get_next set walk /) {
+  eval <<"  CODE" or die $@;
+    sub $method {
+      my(\$self, \$host) = (shift, shift);
+      my \$args = ref \$_[0] eq 'HASH' ? shift : {};
+      \$self->prepare(\$host, \$args, $method => \@_);
+    }
+    1;
+  CODE
+}
+
 =head2 prepare
 
   $self = $self->prepare($host, \%args, ...);
@@ -304,6 +352,7 @@ Note: To get the C<OCTET_STRING> constant and friends you need to do:
 =cut
 
 sub prepare {
+  my $cb = ref $_[-1] eq 'CODE' ? pop : undef; # internal usage. might change
   my $self = shift;
   my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
   my $args = ref $_[0] eq 'HASH' ? shift : {};
@@ -327,7 +376,7 @@ sub prepare {
     while(@_) {
       my $method = shift;
       my $oid = ref $_[0] eq 'ARRAY' ? shift : [shift];
-      push @{ $self->_queue }, [ $key, $method, $oid, $args ]
+      push @{ $self->_queue }, [ $key, $method, $oid, $args, $cb ];
     }
   }
 
@@ -349,7 +398,7 @@ sub _new_session {
   my($self, $args) = @_;
   my($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
 
-  warn "[SNMP] New session $args->{hostname}: $error\n" if DEBUG;
+  warn "[SNMP] New session $args->{hostname}: ", ($error || 'OK'), "\n" if DEBUG;
   $self->emit(error => "$args->{hostname}: $error") if $error;
   $session;
 }
@@ -357,13 +406,14 @@ sub _new_session {
 sub _prepare_request {
   my $self = shift;
   my $item = shift @{ $self->_queue } or return;
-  my($key, $method, $list, $args) = @$item;
+  my($key, $method, $list, $args, $cb) = @$item;
   my $session = $self->_pool->{$key};
   my $success;
 
   # dispatch to our mojo based dispatcher
   $Net::SNMP::DISPATCHER = $self->_dispatcher;
   warn "[SNMP] >>> $key $method(@$list)\n" if DEBUG;
+
   Scalar::Util::weaken($self);
   $method = $SNMP_METHOD{$method} || "$method\_request";
   $success = $session->$method(
@@ -374,11 +424,11 @@ sub _prepare_request {
       local @$args{qw/ method request /} = @$item[1, 2];
       if($_[0]->var_bind_list) {
         warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
-        $self->emit_safe(response => $_[0], $args);
+        $cb ? $self->$cb('', $_[0]) : $self->emit_safe(response => $_[0], $args);
       }
       else {
         warn "[SNMP] <<< $key @{[$_[0]->error]}\n" if DEBUG;
-        $self->emit_safe(error => $_[0]->error, $_[0], $args);
+        $cb ? $self->$cb($_[0]->error, undef) : $self->emit_safe(error => $_[0]->error, $_[0], $args);
       }
       $self->_prepare_request;
       $self->_finish unless $self->_dispatcher->connections;

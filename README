@@ -2,7 +2,7 @@ NAME
     Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 VERSION
-    0.04
+    0.05
 
 SYNOPSIS
       use Mojo::SNMP;
@@ -131,6 +131,36 @@ ATTRIBUTES
     Holds an instance of Mojo::IOLoop.
 
 METHODS
+  get
+      $self->get($host, $args, \@oids, \&callback);
+
+    Will call the &callback when data is retrieved, instead of emitting the
+    "response" event.
+
+  get_bulk
+      $self->get_bulk($host, $args, \@oids, \&callback);
+
+    Will call the &callback when data is retrieved, instead of emitting the
+    "response" event. $args is optional.
+
+  get_next
+      $self->get_next($host, $args, \@oids, \&callback);
+
+    Will call the &callback when data is retrieved, instead of emitting the
+    "response" event. $args is optional.
+
+  set
+      $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], \&callback);
+
+    Will call the &callback when data is set, instead of emitting the
+    "response" event. $args is optional.
+
+  walk
+      $self->walk($host, $args, \@oids, \&callback);
+
+    Will call the &callback when data is retrieved, instead of emitting the
+    "response" event. $args is optional.
+
   prepare
       $self = $self->prepare($host, \%args, ...);
       $self = $self->prepare(\@hosts, \%args, ...);
