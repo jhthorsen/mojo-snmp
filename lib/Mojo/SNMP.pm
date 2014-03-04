@@ -6,7 +6,7 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 =head1 VERSION
 
-0.05
+0.0501
 
 =head1 SYNOPSIS
 
@@ -90,7 +90,7 @@ use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
 use constant MAXREPETITIONS => 10;
 
-our $VERSION = '0.05';
+our $VERSION = '0.0501';
 
 my @EXCLUDE_METHOD_ARGS = qw( maxrepetitions );
 my %EXCLUDE = (
@@ -253,37 +253,52 @@ has _queue => sub { +[] };
 
 =head2 get
 
-  $self->get($host, $args, \@oids, \&callback);
+  $self->get($host, $args, \@oids, sub {
+    my($self, $err, $res) = @_;
+    # ...
+  });
 
-Will call the C<&callback> when data is retrieved, instead of emitting the
+Will call the callback when data is retrieved, instead of emitting the
 L</response> event.
 
 =head2 get_bulk
 
-  $self->get_bulk($host, $args, \@oids, \&callback);
+  $self->get_bulk($host, $args, \@oids, sub {
+    my($self, $err, $res) = @_;
+    # ...
+  });
 
-Will call the C<&callback> when data is retrieved, instead of emitting the
+Will call the callback when data is retrieved, instead of emitting the
 L</response> event. C<$args> is optional.
 
 =head2 get_next
 
-  $self->get_next($host, $args, \@oids, \&callback);
+  $self->get_next($host, $args, \@oids, sub {
+    my($self, $err, $res) = @_;
+    # ...
+  });
 
-Will call the C<&callback> when data is retrieved, instead of emitting the
+Will call the callback when data is retrieved, instead of emitting the
 L</response> event. C<$args> is optional.
 
 =head2 set
 
-  $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], \&callback);
+  $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], sub {
+    my($self, $err, $res) = @_;
+    # ...
+  });
 
-Will call the C<&callback> when data is set, instead of emitting the
+Will call the callback when data is set, instead of emitting the
 L</response> event. C<$args> is optional.
 
 =head2 walk
 
-  $self->walk($host, $args, \@oids, \&callback);
+  $self->walk($host, $args, \@oids, sub {
+    my($self, $err, $res) = @_;
+    # ...
+  });
 
-Will call the C<&callback> when data is retrieved, instead of emitting the
+Will call the callback when data is retrieved, instead of emitting the
 L</response> event. C<$args> is optional.
 
 =cut

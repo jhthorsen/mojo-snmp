@@ -1,5 +1,9 @@
 Revision history for Mojo-SNMP
 
+0.0501   Tue Mar  4 07:15:53 2014
+       * Improved documentation for get(), get_bulk(), get_next(), set()
+         and walk().
+
 0.05     Fri Dec 13 13:03:44 2013
        * Add methods with callbacks as an alternative to "response" event.
        * Cleaned up Makefile.PL
