@@ -34,4 +34,29 @@ ok defined $response[1]{'1.3.6.1.2.1.1.4.0'}, 'got contact name';
 ok defined $response[2]{'1.3.6.1.2.1.1.1.0'}, 'get_next system name';
 
 memory_cycle_ok($snmp) if TEST_MEMORY;
+
+@response = ();
+$snmp->prepare('127.0.0.1', { timeout => 1 },
+  walk => [qw/ 1.3.6.1.2.1.1 /],
+)->wait;
+
+is $finish, 3, 'finish event was emitted';
+ok defined $response[0]{'1.3.6.1.2.1.1.3.0'}, 'got uptime';
+ok defined $response[0]{'1.3.6.1.2.1.1.4.0'}, 'got contact name';
+ok defined $response[0]{'1.3.6.1.2.1.1.1.0'}, 'get_next system name';
+
+memory_cycle_ok($snmp) if TEST_MEMORY;
+
+@response = ();
+$snmp->prepare('127.0.0.1', { timeout => 1 },
+  bulk_walk => [qw/ 1.3.6.1.2.1.1 /],
+)->wait;
+
+is $finish, 4, 'finish event was emitted';
+ok defined $response[0]{'1.3.6.1.2.1.1.3.0'}, 'got uptime';
+ok defined $response[0]{'1.3.6.1.2.1.1.4.0'}, 'got contact name';
+ok defined $response[0]{'1.3.6.1.2.1.1.1.0'}, 'get_next system name';
+
+memory_cycle_ok($snmp) if TEST_MEMORY;
+
 done_testing;
