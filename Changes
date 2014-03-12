@@ -1,5 +1,10 @@
 Revision history for Mojo-SNMP
 
+0.06     Wed Mar 12 18:24:56 2014
+       * Fix memory cycle in 'walk' and 'bulk_walk'
+         Contributor: Per Carlson
+         https://github.com/jhthorsen/mojo-snmp/pull/3
+
 0.0501   Tue Mar  4 07:15:53 2014
        * Improved documentation for get(), get_bulk(), get_next(), set()
          and walk().
