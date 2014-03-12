@@ -110,6 +110,7 @@ __PACKAGE__->add_custom_request_method(bulk_walk => sub {
   $end = sub {
     $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
     $session->$last;
+    $end = $callback = undef;
   };
 
   $callback = sub {
@@ -141,6 +142,7 @@ __PACKAGE__->add_custom_request_method(walk => sub {
   $end = sub {
     $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
     $session->$last;
+    $end = $callback = undef;
   };
 
   $callback = sub {
