@@ -1,5 +1,8 @@
 Revision history for Mojo-SNMP
 
+0.07
+       * Replace emit_safe() with emit(), since it is deprecated
+
 0.06     Wed Mar 12 18:24:56 2014
        * Fix memory cycle in 'walk' and 'bulk_walk'
          Contributor: Per Carlson
