@@ -1,6 +1,6 @@
 Revision history for Mojo-SNMP
 
-0.08
+0.08     Sat Dec 13 12:21:52 2014
        * Fix concurrent logic #5
 
 0.07     Wed Nov 26 09:03:55 2014
