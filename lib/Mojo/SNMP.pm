@@ -85,7 +85,7 @@ not match the base OID or if the tree is exhausted.
 use Mojo::Base 'Mojo::EventEmitter';
 use Mojo::IOLoop;
 use Mojo::SNMP::Dispatcher;
-use Net::SNMP ();
+use Net::SNMP    ();
 use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
 use constant MAXREPETITIONS => 10;
@@ -93,80 +93,85 @@ use constant MAXREPETITIONS => 10;
 our $VERSION = '0.07';
 
 my @EXCLUDE_METHOD_ARGS = qw( maxrepetitions );
-my %EXCLUDE = (
-  v1 => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
-  v2c => [qw/ username authkey authpassword authprotocol privkey privpassword privprotocol /],
-  v3 => [qw/ community /],
+my %EXCLUDE             = (
+  v1  => [qw( username authkey authpassword authprotocol privkey privpassword privprotocol )],
+  v2c => [qw( username authkey authpassword authprotocol privkey privpassword privprotocol )],
+  v3  => [qw( community )],
 );
 
 my %SNMP_METHOD;
-__PACKAGE__->add_custom_request_method(bulk_walk => sub {
-  my($session, %args) = @_;
-  my $base_oid = $args{varbindlist}[0];
-  my $last = $args{callback};
-  my $maxrepetitions = $args{maxrepetitions} || MAXREPETITIONS;
-  my($callback, $end, %tree, %types);
+__PACKAGE__->add_custom_request_method(
+  bulk_walk => sub {
+    my ($session, %args) = @_;
+    my $base_oid       = $args{varbindlist}[0];
+    my $last           = $args{callback};
+    my $maxrepetitions = $args{maxrepetitions} || MAXREPETITIONS;
+    my ($callback, $end, %tree, %types);
 
-  $end = sub {
-    $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
-    $session->$last;
-    $end = $callback = undef;
-  };
+    $end = sub {
+      $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+      $session->$last;
+      $end = $callback = undef;
+    };
 
-  $callback = sub {
-      my($session) = @_;
-      my $res = $session->var_bind_list or return $end->();
+    $callback = sub {
+      my ($session) = @_;
+      my $res     = $session->var_bind_list    or return $end->();
       my @sortres = $session->var_bind_names() or return $end->();
-      my $types = $session->var_bind_types;
-      my $next = $sortres[-1];
+      my $types   = $session->var_bind_types;
+      my $next    = $sortres[-1];
 
       for my $oid (@sortres) {
-          return $end->() unless Net::SNMP::oid_base_match($base_oid, $oid);
-          $types{$oid} = $types->{$oid};
-          $tree{$oid} = $res->{$oid};
+        return $end->() unless Net::SNMP::oid_base_match($base_oid, $oid);
+        $types{$oid} = $types->{$oid};
+        $tree{$oid}  = $res->{$oid};
       }
 
       return $end->() unless $next;
-      return $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$next], callback => $callback);
-  };
+      return $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$next],
+        callback => $callback);
+    };
 
-  $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$base_oid], callback => $callback);
-});
+    $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$base_oid], callback => $callback);
+  }
+);
 
-__PACKAGE__->add_custom_request_method(walk => sub {
-  my($session, %args) = @_;
-  my $base_oid = $args{varbindlist}[0];
-  my $last = $args{callback};
-  my($callback, $end, %tree, %types);
+__PACKAGE__->add_custom_request_method(
+  walk => sub {
+    my ($session, %args) = @_;
+    my $base_oid = $args{varbindlist}[0];
+    my $last     = $args{callback};
+    my ($callback, $end, %tree, %types);
 
-  $end = sub {
-    $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
-    $session->$last;
-    $end = $callback = undef;
-  };
+    $end = sub {
+      $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+      $session->$last;
+      $end = $callback = undef;
+    };
 
-  $callback = sub {
-    my($session) = @_;
-    my $res = $session->var_bind_list or return $end->();
-    my $types = $session->var_bind_types;
-    my @next;
+    $callback = sub {
+      my ($session) = @_;
+      my $res = $session->var_bind_list or return $end->();
+      my $types = $session->var_bind_types;
+      my @next;
 
-    for my $oid (keys %$res) {
-      if(Net::SNMP::oid_base_match($base_oid, $oid)) {
-        $types{$oid} = $types->{$oid};
-        $tree{$oid} = $res->{$oid};
-        push @next, $oid;
+      for my $oid (keys %$res) {
+        if (Net::SNMP::oid_base_match($base_oid, $oid)) {
+          $types{$oid} = $types->{$oid};
+          $tree{$oid}  = $res->{$oid};
+          push @next, $oid;
+        }
       }
-    }
 
-    return $end->() unless @next;
-    return $session->get_next_request(varbindlist => \@next, callback => $callback);
-  };
+      return $end->() unless @next;
+      return $session->get_next_request(varbindlist => \@next, callback => $callback);
+    };
 
-  $session->get_next_request(varbindlist => [$base_oid], callback => $callback);
-});
+    $session->get_next_request(varbindlist => [$base_oid], callback => $callback);
+  }
+);
 
-$Net::SNMP::DISPATCHER = $Net::SNMP::DISPATCHER; # avoid warning
+$Net::SNMP::DISPATCHER = $Net::SNMP::DISPATCHER;    # avoid warning
 
 =head1 EVENTS
 
@@ -240,16 +245,16 @@ Holds an instance of L<Mojo::IOLoop>.
 
 =cut
 
-has concurrent => 20;
-has defaults => sub { +{} };
+has concurrent     => 20;
+has defaults       => sub { +{} };
 has master_timeout => 0;
-has ioloop => sub { Mojo::IOLoop->singleton };
+has ioloop         => sub { Mojo::IOLoop->singleton };
 
 # these attributes are experimental and therefore not exposed. Let me know if
 # you use them...
 has _dispatcher => sub { Mojo::SNMP::Dispatcher->new(ioloop => $_[0]->ioloop) };
-has _pool => sub { +{} };
-has _queue => sub { +[] };
+has _pool       => sub { +{} };
+has _queue      => sub { +[] };
 
 =head1 METHODS
 
@@ -305,15 +310,15 @@ L</response> event. C<$args> is optional.
 
 =cut
 
-for my $method (qw/ get get_bulk get_next set walk /) {
-  eval <<"  CODE" or die $@;
+for my $method (qw( get get_bulk get_next set walk )) {
+  eval <<"HERE" or die $@;
     sub $method {
       my(\$self, \$host) = (shift, shift);
       my \$args = ref \$_[0] eq 'HASH' ? shift : {};
       \$self->prepare(\$host, \$args, $method => \@_);
     }
     1;
-  CODE
+HERE
 }
 
 =head2 prepare
@@ -369,31 +374,31 @@ Note: To get the C<OCTET_STRING> constant and friends you need to do:
 =cut
 
 sub prepare {
-  my $cb = ref $_[-1] eq 'CODE' ? pop : undef; # internal usage. might change
-  my $self = shift;
+  my $cb    = ref $_[-1] eq 'CODE' ? pop : undef;       # internal usage. might change
+  my $self  = shift;
   my $hosts = ref $_[0] eq 'ARRAY' ? shift : [shift];
-  my $args = ref $_[0] eq 'HASH' ? shift : {};
-  my %args = %$args;
+  my $args  = ref $_[0] eq 'HASH' ? shift : {};
+  my %args  = %$args;
 
-  $hosts = [ sort keys %{ $self->_pool } ] if $hosts->[0] and $hosts->[0] eq '*';
+  $hosts = [sort keys %{$self->_pool}] if $hosts->[0] and $hosts->[0] eq '*';
 
-  defined $args{$_} or $args{$_} = $self->defaults->{$_} for keys %{ $self->defaults };
+  defined $args{$_} or $args{$_} = $self->defaults->{$_} for keys %{$self->defaults};
   $args{version} = $self->_normalize_version($args{version} || '');
-  delete $args{$_} for @{ $EXCLUDE{$args{version}} }, @EXCLUDE_METHOD_ARGS;
+  delete $args{$_} for @{$EXCLUDE{$args{version}}}, @EXCLUDE_METHOD_ARGS;
   delete $args{stash};
 
-  HOST:
+HOST:
   for my $key (@$hosts) {
-    my($host) = $key =~ /^([^|]+)/;
+    my ($host) = $key =~ /^([^|]+)/;
     local $args{hostname} = $host;
     my $key = $key eq $host ? $self->_calculate_pool_key(\%args) : $key;
     $self->_pool->{$key} ||= $self->_new_session(\%args) or next HOST;
 
     local @_ = @_;
-    while(@_) {
+    while (@_) {
       my $method = shift;
       my $oid = ref $_[0] eq 'ARRAY' ? shift : [shift];
-      push @{ $self->_queue }, [ $key, $method, $oid, $args, $cb ];
+      push @{$self->_queue}, [$key, $method, $oid, $args, $cb];
     }
   }
 
@@ -404,7 +409,7 @@ sub prepare {
 }
 
 sub _calculate_pool_key {
-  join '|', map { defined $_[1]->{$_} ? $_[1]->{$_} : '' } qw/ hostname version community username /;
+  join '|', map { defined $_[1]->{$_} ? $_[1]->{$_} : '' } qw( hostname version community username );
 }
 
 sub _normalize_version {
@@ -412,8 +417,8 @@ sub _normalize_version {
 }
 
 sub _new_session {
-  my($self, $args) = @_;
-  my($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
+  my ($self, $args) = @_;
+  my ($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
 
   warn "[SNMP] New session $args->{hostname}: ", ($error || 'OK'), "\n" if DEBUG;
   $self->emit(error => "$args->{hostname}: $error") if $error;
@@ -422,8 +427,8 @@ sub _new_session {
 
 sub _prepare_request {
   my $self = shift;
-  my $item = shift @{ $self->_queue } or return;
-  my($key, $method, $list, $args, $cb) = @$item;
+  my $item = shift @{$self->_queue} or return;
+  my ($key, $method, $list, $args, $cb) = @$item;
   my $session = $self->_pool->{$key};
   my $success;
 
@@ -437,9 +442,9 @@ sub _prepare_request {
     $method =~ /bulk/ ? (maxrepetitions => $args->{maxrepetitions} || MAXREPETITIONS) : (),
     ref $method ? (%$args) : (),
     varbindlist => $list,
-    callback => sub {
-      local @$args{qw/ method request /} = @$item[1, 2];
-      if($_[0]->var_bind_list) {
+    callback    => sub {
+      local @$args{qw( method request )} = @$item[1, 2];
+      if ($_[0]->var_bind_list) {
         warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
         $cb ? $self->$cb('', $_[0]) : $self->emit(response => $_[0], $args);
       }
@@ -471,12 +476,14 @@ sub _setup {
   warn "[SNMP] Timeout: $timeout\n" if DEBUG;
   Scalar::Util::weaken($self);
 
-  $tid = $self->ioloop->timer($timeout => sub {
-    warn "[SNMP] Timeout\n" if DEBUG;
-    $self->ioloop->remove($tid);
-    $self->emit('timeout');
-    $self->{_setup} = 0;
-  });
+  $tid = $self->ioloop->timer(
+    $timeout => sub {
+      warn "[SNMP] Timeout\n" if DEBUG;
+      $self->ioloop->remove($tid);
+      $self->emit('timeout');
+      $self->{_setup} = 0;
+    }
+  );
 }
 
 =head2 wait
@@ -491,19 +498,19 @@ runs until L</timeout> or L</finish> is reached.
 =cut
 
 sub wait {
-  my $self = shift;
+  my $self   = shift;
   my $ioloop = $self->ioloop;
   my $stop;
 
   $stop = sub {
-    $_[0]->unsubscribe(finish => $stop);
+    $_[0]->unsubscribe(finish  => $stop);
     $_[0]->unsubscribe(timeout => $stop);
     $ioloop->stop;
     undef $stop;
   };
 
   $self->_setup unless $self->{_setup}++;
-  $self->once(finish => $stop);
+  $self->once(finish  => $stop);
   $self->once(timeout => $stop);
   $ioloop->start;
   $self;
@@ -527,7 +534,7 @@ call the custom callback instead of L<Net::SNMP/get_next_request>.
 =cut
 
 sub add_custom_request_method {
-  my($class, $name, $cb) = @_;
+  my ($class, $name, $cb) = @_;
   $SNMP_METHOD{$name} = $cb;
   $class;
 }

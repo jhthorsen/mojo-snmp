@@ -8,13 +8,11 @@ my %args;
 
 {
   $snmp->concurrent(0);
-  $snmp->prepare('1.2.3.4', { version => '2c', maxrepetitions => 10 }, get_bulk => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+  $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 10}, get_bulk => [qw/ 1.3.6.1.2.1.1.4.0 /]);
 
   is_deeply(
     $snmp->_queue,
-    [
-      [ '1.2.3.4|v2c||', 'get_bulk', ['1.3.6.1.2.1.1.4.0'], { version => '2c', maxrepetitions => 10 }, undef ],
-    ],
+    [['1.2.3.4|v2c||', 'get_bulk', ['1.3.6.1.2.1.1.4.0'], {version => '2c', maxrepetitions => 10}, undef],],
     'queued get_bulk with maxrepetitions',
   );
 }
@@ -28,29 +26,29 @@ my %args;
 {
   $snmp->_prepare_request;
   is_deeply(
-    [ sort keys %args ],
-    [ qw( callback maxrepetitions varbindlist ) ],
+    [sort keys %args],
+    [qw( callback maxrepetitions varbindlist )],
     'get_bulk was called with callback, maxrepetitions and varbindlist',
   );
 }
 
 {
-  $snmp->prepare('1.2.3.4', { version => '2c', maxrepetitions => 10 }, get_next => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+  $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 10}, get_next => [qw/ 1.3.6.1.2.1.1.4.0 /]);
   $snmp->_prepare_request;
-  is_deeply(
-    [ sort keys %args ],
-    [ qw( callback varbindlist ) ],
-    'get_next was not called with maxrepetitions',
-  );
+  is_deeply([sort keys %args], [qw( callback varbindlist )], 'get_next was not called with maxrepetitions',);
 }
 
 {
   $snmp->add_custom_request_method(custom => sub { shift; %args = @_ });
-  $snmp->prepare('1.2.3.4', { stash => { a => 1 }, version => '2c', maxrepetitions => 10 }, custom => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+  $snmp->prepare(
+    '1.2.3.4',
+    {stash => {a => 1}, version => '2c', maxrepetitions => 10},
+    custom => [qw/ 1.3.6.1.2.1.1.4.0 /]
+  );
   $snmp->_prepare_request;
   is_deeply(
-    [ sort keys %args ],
-    [ qw( callback maxrepetitions stash varbindlist version ) ],
+    [sort keys %args],
+    [qw( callback maxrepetitions stash varbindlist version )],
     'custom was called with all input args',
   );
 }

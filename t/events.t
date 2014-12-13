@@ -6,24 +6,25 @@ use constant TEST_MEMORY => $ENV{TEST_MEMORY} && eval 'use Test::Memory::Cycle; 
 
 my $snmp = Mojo::SNMP->new;
 my $net_snmp = Net::SNMP->new(nonblocking => 1);
-my(@request, @response, @error, $timeout, $finish, $guard);
+my (@request, @response, @error, $timeout, $finish, $guard);
 
 plan skip_all => 'Crypt::DES is required' unless eval 'require Crypt::DES; 1';
 
-$snmp->concurrent(0); # required to set up the queue
-$snmp->defaults({ timeout => 1, community => 'public', username => 'foo' });
+$snmp->concurrent(0);    # required to set up the queue
+$snmp->defaults({timeout => 1, community => 'public', username => 'foo'});
 $snmp->on(response => sub { push @response, $_[1]->var_bind_list });
-$snmp->on(error => sub { push @error, $_[1] });
-$snmp->on(finish => sub { $finish++ });
-$snmp->on(timeout => sub { $timeout++ });
+$snmp->on(error    => sub { push @error,    $_[1] });
+$snmp->on(finish   => sub { $finish++ });
+$snmp->on(timeout  => sub { $timeout++ });
 
-$snmp->prepare('1.2.3.4', { version => '2c' }, get => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+$snmp->prepare('1.2.3.4', {version => '2c'}, get => [qw/ 1.3.6.1.2.1.1.4.0 /]);
 
 memory_cycle_ok($snmp) if TEST_MEMORY;
-is_deeply($snmp->_queue, [
-  [ '1.2.3.4|v2c|public|', 'get', ['1.3.6.1.2.1.1.4.0'], { version => '2c' }, undef ],
-],
-'queue is set up');
+is_deeply(
+  $snmp->_queue,
+  [['1.2.3.4|v2c|public|', 'get', ['1.3.6.1.2.1.1.4.0'], {version => '2c'}, undef],],
+  'queue is set up'
+);
 
 no warnings 'redefine';
 *Net::SNMP::get_request = sub { shift; push @request, @_ };
