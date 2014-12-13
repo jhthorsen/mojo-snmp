@@ -90,7 +90,7 @@ $snmp->on(error => sub { push @error, $_[1] });
 $request[3]->($net_snmp);
 $snmp->on(error => sub { note "error: $_[1]"; push @error, $_[1] });
 
-is $snmp->{_requests}, 3, 'callback prepared one requests';
+is $snmp->{_requests}, 2, 'callback prepared two requests';
 is int(@{$snmp->_queue}), 5, 'seven left in the queue';
 is $error[0], 'yikes!', 'on(error) was triggered';
 
