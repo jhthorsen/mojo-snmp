@@ -444,6 +444,7 @@ sub _prepare_request {
     varbindlist => $list,
     callback    => sub {
       local @$args{qw( method request )} = @$item[1, 2];
+      $self->{_requests}-- if $self->{_requests};
       if ($_[0]->var_bind_list) {
         warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
         $cb ? $self->$cb('', $_[0]) : $self->emit(response => $_[0], $args);
