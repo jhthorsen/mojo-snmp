@@ -1,5 +1,8 @@
 Revision history for Mojo-SNMP
 
+0.09
+       * Need to emit error when a callback fail #6
+
 0.08     Sat Dec 13 12:21:52 2014
        * Fix concurrent logic #5
 

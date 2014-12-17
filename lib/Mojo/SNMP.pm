@@ -443,16 +443,21 @@ sub _prepare_request {
     ref $method ? (%$args) : (),
     varbindlist => $list,
     callback    => sub {
-      local @$args{qw( method request )} = @$item[1, 2];
-      $self->{_requests}-- if $self->{_requests};
-      if ($_[0]->var_bind_list) {
-        warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
-        $cb ? $self->$cb('', $_[0]) : $self->emit(response => $_[0], $args);
-      }
-      else {
-        warn "[SNMP] <<< $key @{[$_[0]->error]}\n" if DEBUG;
-        $cb ? $self->$cb($_[0]->error, undef) : $self->emit(error => $_[0]->error, $_[0], $args);
-      }
+      eval {
+        local @$args{qw( method request )} = @$item[1, 2];
+        $self->{_requests}-- if $self->{_requests};
+        if ($_[0]->var_bind_list) {
+          warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
+          $cb ? $self->$cb('', $_[0]) : $self->emit(response => $_[0], $args);
+        }
+        else {
+          warn "[SNMP] <<< $key @{[$_[0]->error]}\n" if DEBUG;
+          $cb ? $self->$cb($_[0]->error, undef) : $self->emit(error => $_[0]->error, $_[0], $args);
+        }
+        1;
+      } or do {
+        $self->emit(error => $@);
+      };
       $self->_prepare_request;
       $self->_finish unless $self->_dispatcher->connections;
     },
