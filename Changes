@@ -1,6 +1,6 @@
 Revision history for Mojo-SNMP
 
-0.10
+0.10     Thu Dec 18 17:16:48 2014
        * Fix multiple dispatcher objects can't coexist #7
 
 0.09     Wed Dec 17 09:55:46 2014
