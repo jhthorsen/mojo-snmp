@@ -404,7 +404,7 @@ sub _finish {
 
 sub _new_session {
   my ($self, $args) = @_;
-  my ($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
+  my ($session, $error) = Net::SNMP->new(%$args, nonblocking => 1);
 
   warn "[SNMP] New session $args->{hostname}: ", ($error || 'OK'), "\n" if DEBUG;
   Mojo::IOLoop->next_tick(sub { $self->emit(error => "$args->{hostname}: $error") }) if $error;
@@ -420,14 +420,27 @@ sub _prepare_request {
   my $item = shift @{$self->_queue} or return;
   my ($key, $method, $list, $args, $cb) = @$item;
   my $session = $self->_pool->{$key};
-  my $success;
+  my ($error, $success);
 
   # dispatch to our mojo based dispatcher
   $Net::SNMP::DISPATCHER = $self->_dispatcher;
-  warn "[SNMP] >>> $key $method(@$list)\n" if DEBUG;
+  warn "[SNMP] $key $method(@$list)\n" if DEBUG;
+
+  unless ($session->transport) {
+    warn "[SNMP] Open connection...\n" if DEBUG;
+    unless ($session->open) {
+      Mojo::IOLoop->next_tick(
+        sub {
+          $cb ? $self->$cb($session->error, undef) : $self->emit(error => $session->error, $session, $args);
+        },
+      );
+      return $self->{_requests} || '0e0';
+    }
+  }
 
   Scalar::Util::weaken($self);
   $method = $SNMP_METHOD{$method} || "$method\_request";
+
   $success = $session->$method(
     $method =~ /bulk/ ? (maxrepetitions => $args->{maxrepetitions} || MAXREPETITIONS) : (),
     ref $method ? (%$args) : (),
