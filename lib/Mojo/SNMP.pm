@@ -484,7 +484,7 @@ sub _snmp_method_bulk_walk {
   my ($callback, $end, %tree, %types);
 
   $end = sub {
-    $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+    $session->pdu->var_bind_list(\%tree, \%types) if %tree;
     $session->$last;
     $end = $callback = undef;
   };
@@ -516,7 +516,7 @@ sub _snmp_method_walk {
   my ($callback, $end, %tree, %types);
 
   $end = sub {
-    $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+    $session->pdu->var_bind_list(\%tree, \%types) if %tree;
     $session->$last;
     $end = $callback = undef;
   };
