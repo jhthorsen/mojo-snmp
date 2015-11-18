@@ -8,7 +8,7 @@ my %args;
 
 {
   $snmp->concurrent(0);
-  $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 10}, get_bulk => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+  $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 10}, get_bulk => ['1.3.6.1.2.1.1.4.0']);
 
   is_deeply(
     $snmp->_queue,
@@ -33,18 +33,15 @@ my %args;
 }
 
 {
-  $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 10}, get_next => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+  $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 10}, get_next => ['1.3.6.1.2.1.1.4.0']);
   $snmp->_prepare_request;
   is_deeply([sort keys %args], [qw( callback varbindlist )], 'get_next was not called with maxrepetitions',);
 }
 
 {
   $snmp->add_custom_request_method(custom => sub { shift; %args = @_ });
-  $snmp->prepare(
-    '1.2.3.4',
-    {stash => {a => 1}, version => '2c', maxrepetitions => 10},
-    custom => [qw/ 1.3.6.1.2.1.1.4.0 /]
-  );
+  $snmp->prepare('1.2.3.4', {stash => {a => 1}, version => '2c', maxrepetitions => 10},
+    custom => ['1.3.6.1.2.1.1.4.0']);
   $snmp->_prepare_request;
   is_deeply(
     [sort keys %args],

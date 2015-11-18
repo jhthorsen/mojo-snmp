@@ -17,7 +17,7 @@ $snmp->on(error    => sub { push @error,    $_[1] });
 $snmp->on(finish   => sub { $finish++ });
 $snmp->on(timeout  => sub { $timeout++ });
 
-$snmp->prepare('1.2.3.4', {version => '2c'}, get => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+$snmp->prepare('1.2.3.4', {version => '2c'}, get => ['1.3.6.1.2.1.1.4.0']);
 
 memory_cycle_ok($snmp) if TEST_MEMORY;
 is_deeply(

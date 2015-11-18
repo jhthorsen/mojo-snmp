@@ -17,15 +17,15 @@ $snmp->defaults({community => 'public', version => 2});
 memory_cycle_ok($snmp) if TEST_MEMORY;
 
 @response = ();
-$snmp->prepare('127.0.0.1', {timeout => 1}, get => [qw/ 1.2.42.42 /])->wait;
+$snmp->prepare('127.0.0.1', {timeout => 1}, get => ['1.2.42.42'])->wait;
 is $response[0]{'1.2.42.42'}, 'noSuchObject', '1.2.42.42 does not exist';
 
 @response = ();
 $snmp->prepare(
   '127.0.0.1', {timeout => 1},
-  get      => [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /],
-  get      => [qw/ 1.3.6.1.2.1.1.4.0 /],
-  get_next => [qw/ 1.3.6.1.2.1 /],
+  get      => [qw( 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 )],
+  get      => [qw( 1.3.6.1.2.1.1.4.0 )],
+  get_next => [qw( 1.3.6.1.2.1 )],
 )->wait;
 
 is $finish, 2, 'finish event was emitted';
@@ -37,7 +37,7 @@ ok defined $response[2]{'1.3.6.1.2.1.1.1.0'}, 'get_next system name';
 memory_cycle_ok($snmp) if TEST_MEMORY;
 
 @response = ();
-$snmp->prepare('127.0.0.1', {timeout => 1}, walk => [qw/ 1.3.6.1.2.1.1 /],)->wait;
+$snmp->prepare('127.0.0.1', {timeout => 1}, walk => ['1.3.6.1.2.1.1'])->wait;
 
 is $finish, 3, 'finish event was emitted';
 ok defined $response[0]{'1.3.6.1.2.1.1.3.0'}, 'got uptime';
@@ -47,7 +47,7 @@ ok defined $response[0]{'1.3.6.1.2.1.1.1.0'}, 'get_next system name';
 memory_cycle_ok($snmp) if TEST_MEMORY;
 
 @response = ();
-$snmp->prepare('127.0.0.1', {timeout => 1}, bulk_walk => [qw/ 1.3.6.1.2.1.1 /],)->wait;
+$snmp->prepare('127.0.0.1', {timeout => 1}, bulk_walk => ['1.3.6.1.2.1.1'])->wait;
 
 is $finish, 4, 'finish event was emitted';
 ok defined $response[0]{'1.3.6.1.2.1.1.3.0'}, 'got uptime';

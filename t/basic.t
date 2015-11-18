@@ -23,18 +23,18 @@ isa_ok $snmp->_dispatcher, 'Mojo::SNMP::Dispatcher';
 is $snmp->master_timeout,  0, 'master_timeout is disabled by default';
 is $snmp->_dispatcher->ioloop, $snmp->ioloop, 'same ioloop';
 
-$snmp->prepare('1.2.3.4', {version => '2c'}, get => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+$snmp->prepare('1.2.3.4', {version => '2c'}, get => ['1.3.6.1.2.1.1.4.0']);
 ok $snmp->_pool->{'1.2.3.4|v2c|public|'}, '1.2.3.4 v2c public';
 
-$snmp->prepare('1.2.3.5', get_next => [qw/ 1.3.6.1.2.1.1.6.0 /]);
+$snmp->prepare('1.2.3.5', get_next => [qw( 1.3.6.1.2.1.1.6.0 )]);
 ok $snmp->_pool->{'1.2.3.5|v2c|public|'}, '1.2.3.5 v2c public';
 
 memory_cycle_ok($snmp) if TEST_MEMORY;
 
 $snmp->prepare(
   '127.0.0.1', {version => '2', community => 'foo'},
-  get      => [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /],
-  get_next => [qw/ 1.3.6.1.2.1 /],
+  get      => [qw( 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 )],
+  get_next => [qw( 1.3.6.1.2.1 )],
 );
 ok $snmp->_pool->{'127.0.0.1|v2c|foo|'}, '127.0.0.1 v2c foo';
 
@@ -53,10 +53,10 @@ is_deeply(
     ['1.2.3.5|v2c|public|', 'get_next', ['1.3.6.1.2.1.1.6.0'], {}, undef],
     [
       '127.0.0.1|v2c|foo|', 'get',
-      [qw/ 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 /],
+      [qw( 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 )],
       {version => '2', community => 'foo'}, undef
     ],
-    ['127.0.0.1|v2c|foo|', 'get_next', [qw/ 1.3.6.1.2.1 /], {version => '2', community => 'foo'}, undef],
+    ['127.0.0.1|v2c|foo|', 'get_next', ['1.3.6.1.2.1'], {version => '2', community => 'foo'}, undef],
 
     # *
     ['1.2.3.4|v2c|public|', 'get_next', ['1.2.3'], {stash => 123}, undef],

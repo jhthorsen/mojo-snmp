@@ -16,7 +16,7 @@ for my $target (@targets) {
   my $round = 0;
   $action = sub {
     my $lastCall = gettimeofday;
-    diag "ACTION";
+    diag "ACTION" if Mojo::SNMP::DEBUG;
     $snmp->get(
       $target,
       {community => 'public'},
@@ -27,12 +27,12 @@ for my $target (@targets) {
         my $wait = $lastCall + $interval - $now;
         push @res, $err || join ',', values %{$res->var_bind_list} if @_ == 3;
         if ($wait <= 0) {
-          diag "Oops, SNMP took " . ($interval - $wait);
+          diag "Oops, SNMP took " . ($interval - $wait) if Mojo::SNMP::DEBUG;
           Mojo::IOLoop->next_tick($action);
         }
         else {
           $round++;
-          diag "Schedule Next $wait (Round $round)";
+          diag "Schedule Next $wait (Round $round)" if Mojo::SNMP::DEBUG;
           Mojo::IOLoop->timer($wait => $action);
         }
 
@@ -47,6 +47,6 @@ Mojo::IOLoop->timer(2 => sub { push @res, 'TIMEOUT!'; Mojo::IOLoop->stop; });
 Mojo::IOLoop->start;
 
 is int(@res), $limit, 'not stopped by concurrent limit';
-diag join "\n", @res;
+diag join "\n", @res if Mojo::SNMP::DEBUG;
 
 done_testing;

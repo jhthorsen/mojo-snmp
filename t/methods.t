@@ -15,8 +15,8 @@ $snmp->on(error => sub { note "error: $_[1]"; push @extra, $_[1] });
 $snmp->on(finish  => sub { $finish++ });
 $snmp->on(timeout => sub { $timeout++ });
 
-$snmp->get('1.2.3.4', {version => '2c'}, [qw/ 1.3.6.1.2.1.1.4.0 /], \&got_res);
-$snmp->get_next('1.2.3.5' => [qw/ 1.3.6.1.2.1.1.6.0 /], \&got_res);
+$snmp->get('1.2.3.4', {version => '2c'}, ['1.3.6.1.2.1.1.4.0'], \&got_res);
+$snmp->get_next('1.2.3.5' => ['1.3.6.1.2.1.1.6.0'], \&got_res);
 
 is_deeply(
   $snmp->_queue,

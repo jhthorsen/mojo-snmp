@@ -12,7 +12,7 @@ my %args;
 }
 
 {
-  $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 2}, bulk_walk => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+  $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 2}, bulk_walk => ['1.3.6.1.2.1.1.4.0']);
   is_deeply(
     [sort keys %args],
     [qw( callback maxrepetitions varbindlist )],
@@ -22,7 +22,7 @@ my %args;
 }
 
 {
-  $snmp->prepare('1.2.3.4', {version => '2c',}, bulk_walk => [qw/ 1.3.6.1.2.1.1.4.0 /]);
+  $snmp->prepare('1.2.3.4', {version => '2c',}, bulk_walk => ['1.3.6.1.2.1.1.4.0']);
   is_deeply(
     [sort keys %args],
     [qw( callback maxrepetitions varbindlist )],

@@ -13,7 +13,7 @@ plan skip_all => 'Digest::SHA1 is required' unless eval 'require Digest::SHA1; 1
 $snmp->concurrent(0);    # required to set up the queue
 $snmp->defaults({timeout => 1, community => 'public', username => 'foo'});
 
-$snmp->prepare('1.2.3.5', {version => 3}, get => [qw/ 1.3.6.1.2.1.1.5.0 /]);
+$snmp->prepare('1.2.3.5', {version => 3}, get => ['1.3.6.1.2.1.1.5.0']);
 ok $snmp->_pool->{'1.2.3.5|v3||foo'}, '1.2.3.5 v3 foo';
 
 $snmp->prepare('*', get_next => '1.2.3');
