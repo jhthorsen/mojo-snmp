@@ -438,10 +438,9 @@ sub _prepare_request {
     }
   }
 
+  warn "[Mojo::SNMP] $key $method(@$list)\n" if DEBUG;
   Scalar::Util::weaken($self);
   $method = $SNMP_METHOD{$method} || "$method\_request";
-
-  warn "[Mojo::SNMP] $key $method(@$list)\n" if DEBUG;
   $success = $session->$method(
     $method =~ /bulk/ ? (maxrepetitions => $args->{maxrepetitions} || MAXREPETITIONS) : (),
     ref $method ? (%$args) : (),
@@ -515,7 +514,7 @@ sub _snmp_method_bulk_walk {
     my $next    = $sortres[-1];
 
     for my $oid (@sortres) {
-      return $end->() unless Net::SNMP::oid_base_match($base_oid, $oid);
+      return $end->() if $types{$oid} or !Net::SNMP::oid_base_match($base_oid, $oid);
       $types{$oid} = $types->{$oid};
       $tree{$oid}  = $res->{$oid};
     }
@@ -546,7 +545,7 @@ sub _snmp_method_walk {
     my @next;
 
     for my $oid (keys %$res) {
-      if (Net::SNMP::oid_base_match($base_oid, $oid)) {
+      if (!$types{$oid} and Net::SNMP::oid_base_match($base_oid, $oid)) {
         $types{$oid} = $types->{$oid};
         $tree{$oid}  = $res->{$oid};
         push @next, $oid;
