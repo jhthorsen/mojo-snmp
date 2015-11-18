@@ -397,7 +397,7 @@ sub _calculate_pool_key {
 }
 
 sub _finish {
-  warn "[SNMP] Finish\n" if DEBUG;
+  warn "[Mojo::SNMP] Finish\n" if DEBUG;
   $_[0]->emit('finish');
   $_[0]->{_setup} = 0;
 }
@@ -406,7 +406,7 @@ sub _new_session {
   my ($self, $args) = @_;
   my ($session, $error) = Net::SNMP->new(%$args, nonblocking => 1);
 
-  warn "[SNMP] New session $args->{hostname}: ", ($error || 'OK'), "\n" if DEBUG;
+  warn "[Mojo::SNMP] New session $args->{hostname}: ", ($error || 'OK'), "\n" if DEBUG;
   Mojo::IOLoop->next_tick(sub { $self->emit(error => "$args->{hostname}: $error") }) if $error;
   $session;
 }
@@ -424,10 +424,10 @@ sub _prepare_request {
 
   # dispatch to our mojo based dispatcher
   $Net::SNMP::DISPATCHER = $self->_dispatcher;
-  warn "[SNMP] $key $method(@$list)\n" if DEBUG;
+  warn "[Mojo::SNMP] $key $method(@$list)\n" if DEBUG;
 
   unless ($session->transport) {
-    warn "[SNMP] Open connection...\n" if DEBUG;
+    warn "[Mojo::SNMP] Open connection...\n" if DEBUG;
     unless ($session->open) {
       Mojo::IOLoop->next_tick(
         sub {
@@ -450,11 +450,11 @@ sub _prepare_request {
         local @$args{qw( method request )} = @$item[1, 2];
         $self->{_requests}-- if $self->{_requests};
         if ($_[0]->var_bind_list) {
-          warn "[SNMP] <<< $key $method(@$list)\n" if DEBUG;
+          warn "[Mojo::SNMP] <<< $key $method(@$list)\n" if DEBUG;
           $cb ? $self->$cb('', $_[0]) : $self->emit(response => $_[0], $args);
         }
         else {
-          warn "[SNMP] <<< $key @{[$_[0]->error]}\n" if DEBUG;
+          warn "[Mojo::SNMP] <<< $key @{[$_[0]->error]}\n" if DEBUG;
           $cb ? $self->$cb($_[0]->error, undef) : $self->emit(error => $_[0]->error, $_[0], $args);
         }
         1;
@@ -476,12 +476,12 @@ sub _setup {
   my $timeout = $self->master_timeout or return;
   my $tid;
 
-  warn "[SNMP] Timeout: $timeout\n" if DEBUG;
+  warn "[Mojo::SNMP] Timeout: $timeout\n" if DEBUG;
   Scalar::Util::weaken($self);
 
   $tid = $self->ioloop->timer(
     $timeout => sub {
-      warn "[SNMP] Timeout\n" if DEBUG;
+      warn "[Mojo::SNMP] Timeout\n" if DEBUG;
       $self->ioloop->remove($tid);
       $self->emit('timeout');
       $self->{_setup} = 0;

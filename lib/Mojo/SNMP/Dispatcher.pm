@@ -56,7 +56,7 @@ sub error {
 
   return $self->{error} if @_ == 1;
   $self->{error} = defined $format ? sprintf $format, @args : undef;
-  warn "[DISPATCHER] $self->{error}\n" if DEBUG and defined $format;
+  warn "[Mojo::SNMP::Dispatcher] $self->{error}\n" if DEBUG and defined $format;
   return $self;
 }
 
@@ -113,7 +113,7 @@ sub schedule {
   my ($self, $time, $callback) = @_;
   my $code = shift @$callback;
 
-  warn "[DISPATCHER] Schedule $time $code(@$callback)\n" if DEBUG;
+  warn "[Mojo::SNMP::Dispatcher] Schedule $time $code(@$callback)\n" if DEBUG;
 
   if ($time) {
     Scalar::Util::weaken($self);
@@ -153,7 +153,7 @@ sub register {
   );
 
   $reactor->watch($transport->socket, 1, 0);
-  warn "[DISPATCHER] Add handler for descriptor $fileno\n" if DEBUG;
+  warn "[Mojo::SNMP::Dispatcher] Add handler for descriptor $fileno\n" if DEBUG;
   return $transport;
 }
 
@@ -168,7 +168,7 @@ sub deregister {
   my $fileno = $transport->fileno;
   return if --$self->{descriptors}{$fileno} > 0;
   delete $self->{descriptors}{$fileno};
-  warn "[DISPATCHER] Remove handler for descriptor $fileno\n" if DEBUG;
+  warn "[Mojo::SNMP::Dispatcher] Remove handler for descriptor $fileno\n" if DEBUG;
   $self->ioloop->reactor->remove($transport->socket);
 }
 
@@ -178,7 +178,7 @@ sub _send_pdu {
   my $msg = $mp->prepare_outgoing_msg($pdu);
 
   unless (defined $msg) {
-    warn "[DISPATCHER] prepare_outgoing_msg: @{[$mp->error]}\n" if DEBUG;
+    warn "[Mojo::SNMP::Dispatcher] prepare_outgoing_msg: @{[$mp->error]}\n" if DEBUG;
     $pdu->status_information($mp->error);
     return;
   }
@@ -187,7 +187,7 @@ sub _send_pdu {
       $mp->msg_handle_delete($msg->msg_id);
     }
     if ($retries-- > 0 and $!{EAGAIN} or $!{EWOULDBLOCK}) {
-      warn "[DISPATCHER] Attempt to recover from temporary failure: $!\n" if DEBUG;
+      warn "[Mojo::SNMP::Dispatcher] Attempt to recover from temporary failure: $!\n" if DEBUG;
       $self->schedule($pdu->timeout, [_send_pdu => $pdu, $retries]);
       return FALSE;
     }
@@ -211,11 +211,11 @@ sub _transport_timeout {
   $self->message_processing->msg_handle_delete($handle);
 
   if ($retries-- > 0) {
-    warn "[DISPATCHER] Retries left: $retries\n" if DEBUG;
+    warn "[Mojo::SNMP::Dispatcher] Retries left: $retries\n" if DEBUG;
     return $self->_send_pdu($pdu, $retries);
   }
   else {
-    warn "[DISPATCHER] No response from remote host @{[ $pdu->hostname ]}\n" if DEBUG;
+    warn "[Mojo::SNMP::Dispatcher] No response from remote host @{[ $pdu->hostname ]}\n" if DEBUG;
     $pdu->status_information(q{No response from remote host "%s"}, $pdu->hostname);
     return;
   }
@@ -237,7 +237,7 @@ sub _transport_response_received {
     return;
   }
   if (not $msg->length) {
-    warn "[DISPATCHER] Ignoring zero length message\n" if DEBUG;
+    warn "[Mojo::SNMP::Dispatcher] Ignoring zero length message\n" if DEBUG;
     return;
   }
   if (not $mp->prepare_data_elements($msg)) {
@@ -248,7 +248,7 @@ sub _transport_response_received {
     $msg->error($mp->error);
   }
 
-  warn "[DISPATCHER] Processing pdu\n" if DEBUG;
+  warn "[Mojo::SNMP::Dispatcher] Processing pdu\n" if DEBUG;
   $self->ioloop->remove($msg->timeout_id);
   $self->deregister($transport);
   $msg->process_response_pdu;
