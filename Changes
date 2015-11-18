@@ -1,54 +1,52 @@
-Revision history for Mojo-SNMP
+Revision history for perl distribution Mojo-SNMP
 
-0.10     Thu Dec 18 17:16:48 2014
-       * Fix multiple dispatcher objects can't coexist #7
+0.10 2014-12-18T17:16:48Z
+ - Fix multiple dispatcher objects can't coexist #7
 
-0.09     Wed Dec 17 09:55:46 2014
-       * Need to emit error when a callback fail #6
+0.09 2014-12-17T09:55:46Z
+ - Need to emit error when a callback fail #6
 
-0.08     Sat Dec 13 12:21:52 2014
-       * Fix concurrent logic #5
+0.08 2014-12-13T12:21:52Z
+ - Fix concurrent logic #5
 
-0.07     Wed Nov 26 09:03:55 2014
-       * Replace emit_safe() with emit(), since it is deprecated
+0.07 2014-11-26T09:03:55Z
+ - Replace emit_safe() with emit(), since it is deprecated
 
-0.06     Wed Mar 12 18:24:56 2014
-       * Fix memory cycle in 'walk' and 'bulk_walk'
-         Contributor: Per Carlson
-         https://github.com/jhthorsen/mojo-snmp/pull/3
+0.06 2014-03-12T18:24:56Z
+ - Fix memory cycle in 'walk' and 'bulk_walk' Contributor: Per Carlson
+   https://github.com/jhthorsen/mojo-snmp/pull/3
 
-0.0501   Tue Mar  4 07:15:53 2014
-       * Improved documentation for get(), get_bulk(), get_next(), set()
-         and walk().
+0.0501 2014-03-04T07:15:53Z
+ - Improved documentation for get(), get_bulk(), get_next(), set() and
+   walk().
 
-0.05     Fri Dec 13 13:03:44 2013
-       * Add methods with callbacks as an alternative to "response" event.
-       * Cleaned up Makefile.PL
+0.05 2013-12-13T13:03:44Z
+ - Add methods with callbacks as an alternative to "response" event.
+ - Cleaned up Makefile.PL
 
-0.04     Thu Sep 26 15:36:37 2013
-       * Add support for passing maxrepetitions to prepare()
-       * Add add_custom_request_method() method
-       * Add custom method bulk_walk() - Espen Tallaksen
+0.04 2013-09-26T15:36:37Z
+ - Add support for passing maxrepetitions to prepare()
+ - Add add_custom_request_method() method
+ - Add custom method bulk_walk() - Espen Tallaksen
 
-0.0301   Sat Sep  7 10:44:22 2013
-       * Fix Makefile.PL
-       * Fix t/basic.t
-       * Change indentation to two spaces.
+0.0301 2013-09-07T10:44:22Z
+ - Fix Makefile.PL
+ - Fix t/basic.t
+ - Change indentation to two spaces.
 
-0.03     Mon Dec 10 20:11:23 2012
-       * Add support for prepare($host, ..., walk => $oid);
-       * Change "response" and "error" events also receive prepare() args.
+0.03 2012-12-10T20:11:23Z
+ - Add support for prepare($host, ..., walk => $oid);
+ - Change "response" and "error" events also receive prepare() args.
 
-0.0201   Thu Oct 25 21:20:42 2012
-       * Need to ignore ./local
+0.0201 2012-10-25T21:20:42Z
+ - Need to ignore ./local
 
-0.02     Thu Oct 18 00:07:55 2012
-       * Add Joshua Keroes as author
-       * Extended the documentation and fixed bugs
+0.02 2012-10-18T00:07:55Z
+ - Add Joshua Keroes as author
+ - Extended the documentation and fixed bugs
 
-0.01     Wed Oct 17 23:38:47 2012
-       * Add custom dispatcher
-       * Add prepare()
-       * Add wait()
-       * Started project
-
+0.01 2012-10-17T23:38:47Z
+ - Add custom dispatcher
+ - Add prepare()
+ - Add wait()
+ - Started project

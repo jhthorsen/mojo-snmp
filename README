@@ -131,6 +131,21 @@ ATTRIBUTES
     Holds an instance of Mojo::IOLoop.
 
 METHODS
+  add_custom_request_method
+      $self->add_custom_request_method(name => sub {
+        my($session, %args) = @_;
+        # do custom stuff..
+      });
+
+    This method can be used to add custom Net::SNMP request methods. See the
+    source code for an example on how to do "walk".
+
+    NOTE: This method will also replace any method, meaning the code below
+    will call the custom callback instead of "get_next_request" in
+    Net::SNMP.
+
+      $self->add_custom_request_method(get_next => $custom_callback);
+
   get
       $self->get($host, $args, \@oids, sub {
         my($self, $err, $res) = @_;
@@ -151,24 +166,6 @@ METHODS
 
   get_next
       $self->get_next($host, $args, \@oids, sub {
-        my($self, $err, $res) = @_;
-        # ...
-      });
-
-    Will call the callback when data is retrieved, instead of emitting the
-    "response" event. $args is optional.
-
-  set
-      $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], sub {
-        my($self, $err, $res) = @_;
-        # ...
-      });
-
-    Will call the callback when data is set, instead of emitting the
-    "response" event. $args is optional.
-
-  walk
-      $self->walk($host, $args, \@oids, sub {
         my($self, $err, $res) = @_;
         # ...
       });
@@ -222,6 +219,24 @@ METHODS
 
       use Net::SNMP ':asn1';
 
+  set
+      $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], sub {
+        my($self, $err, $res) = @_;
+        # ...
+      });
+
+    Will call the callback when data is set, instead of emitting the
+    "response" event. $args is optional.
+
+  walk
+      $self->walk($host, $args, \@oids, sub {
+        my($self, $err, $res) = @_;
+        # ...
+      });
+
+    Will call the callback when data is retrieved, instead of emitting the
+    "response" event. $args is optional.
+
   wait
     This is useful if you want to block your code: "wait()" starts the
     ioloop and runs until "timeout" or "finish" is reached.
@@ -229,21 +244,6 @@ METHODS
       my $snmp = Mojo::SNMP->new;
       $snmp->prepare(...)->wait; # blocks while retrieving data
       # ... your program continues after the SNMP operations have finished.
-
-  add_custom_request_method
-      $self->add_custom_request_method(name => sub {
-        my($session, %args) = @_;
-        # do custom stuff..
-      });
-
-    This method can be used to add custom Net::SNMP request methods. See the
-    source code for an example on how to do "walk".
-
-    NOTE: This method will also replace any method, meaning the code below
-    will call the custom callback instead of "get_next_request" in
-    Net::SNMP.
-
-      $self->add_custom_request_method(get_next => $custom_callback);
 
 COPYRIGHT & LICENSE
     This library is free software. You can redistribute it and/or modify it
