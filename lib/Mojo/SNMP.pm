@@ -101,76 +101,8 @@ my %EXCLUDE             = (
 );
 
 my %SNMP_METHOD;
-__PACKAGE__->add_custom_request_method(
-  bulk_walk => sub {
-    my ($session, %args) = @_;
-    my $base_oid       = $args{varbindlist}[0];
-    my $last           = $args{callback};
-    my $maxrepetitions = $args{maxrepetitions} || MAXREPETITIONS;
-    my ($callback, $end, %tree, %types);
-
-    $end = sub {
-      $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
-      $session->$last;
-      $end = $callback = undef;
-    };
-
-    $callback = sub {
-      my ($session) = @_;
-      my $res     = $session->var_bind_list    or return $end->();
-      my @sortres = $session->var_bind_names() or return $end->();
-      my $types   = $session->var_bind_types;
-      my $next    = $sortres[-1];
-
-      for my $oid (@sortres) {
-        return $end->() unless Net::SNMP::oid_base_match($base_oid, $oid);
-        $types{$oid} = $types->{$oid};
-        $tree{$oid}  = $res->{$oid};
-      }
-
-      return $end->() unless $next;
-      return $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$next],
-        callback => $callback);
-    };
-
-    $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$base_oid], callback => $callback);
-  }
-);
-
-__PACKAGE__->add_custom_request_method(
-  walk => sub {
-    my ($session, %args) = @_;
-    my $base_oid = $args{varbindlist}[0];
-    my $last     = $args{callback};
-    my ($callback, $end, %tree, %types);
-
-    $end = sub {
-      $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
-      $session->$last;
-      $end = $callback = undef;
-    };
-
-    $callback = sub {
-      my ($session) = @_;
-      my $res = $session->var_bind_list or return $end->();
-      my $types = $session->var_bind_types;
-      my @next;
-
-      for my $oid (keys %$res) {
-        if (Net::SNMP::oid_base_match($base_oid, $oid)) {
-          $types{$oid} = $types->{$oid};
-          $tree{$oid}  = $res->{$oid};
-          push @next, $oid;
-        }
-      }
-
-      return $end->() unless @next;
-      return $session->get_next_request(varbindlist => \@next, callback => $callback);
-    };
-
-    $session->get_next_request(varbindlist => [$base_oid], callback => $callback);
-  }
-);
+__PACKAGE__->add_custom_request_method(bulk_walk => \&_snmp_method_bulk_walk);
+__PACKAGE__->add_custom_request_method(walk      => \&_snmp_method_walk);
 
 $Net::SNMP::DISPATCHER = $Net::SNMP::DISPATCHER;    # avoid warning
 
@@ -259,6 +191,29 @@ has _queue      => sub { +[] };
 
 =head1 METHODS
 
+=head2 add_custom_request_method
+
+  $self->add_custom_request_method(name => sub {
+    my($session, %args) = @_;
+    # do custom stuff..
+  });
+
+This method can be used to add custom L<Net::SNMP> request methods. See the
+source code for an example on how to do "walk".
+
+NOTE: This method will also replace any method, meaning the code below will
+call the custom callback instead of L<Net::SNMP/get_next_request>.
+
+  $self->add_custom_request_method(get_next => $custom_callback);
+
+=cut
+
+sub add_custom_request_method {
+  my ($class, $name, $cb) = @_;
+  $SNMP_METHOD{$name} = $cb;
+  $class;
+}
+
 =head2 get
 
   $self->get($host, $args, \@oids, sub {
@@ -288,39 +243,6 @@ L</response> event. C<$args> is optional.
 
 Will call the callback when data is retrieved, instead of emitting the
 L</response> event. C<$args> is optional.
-
-=head2 set
-
-  $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], sub {
-    my($self, $err, $res) = @_;
-    # ...
-  });
-
-Will call the callback when data is set, instead of emitting the
-L</response> event. C<$args> is optional.
-
-=head2 walk
-
-  $self->walk($host, $args, \@oids, sub {
-    my($self, $err, $res) = @_;
-    # ...
-  });
-
-Will call the callback when data is retrieved, instead of emitting the
-L</response> event. C<$args> is optional.
-
-=cut
-
-for my $method (qw( get get_bulk get_next set walk )) {
-  eval <<"HERE" or die $@;
-    sub $method {
-      my(\$self, \$host) = (shift, shift);
-      my \$args = ref \$_[0] eq 'HASH' ? shift : {};
-      \$self->prepare(\$host, \$args, $method => \@_);
-    }
-    1;
-HERE
-}
 
 =head2 prepare
 
@@ -409,12 +331,75 @@ HOST:
   $self;
 }
 
+=head2 set
+
+  $self->set($host, $args => [ $oid => OCTET_STRING, $value, ... ], sub {
+    my($self, $err, $res) = @_;
+    # ...
+  });
+
+Will call the callback when data is set, instead of emitting the
+L</response> event. C<$args> is optional.
+
+=head2 walk
+
+  $self->walk($host, $args, \@oids, sub {
+    my($self, $err, $res) = @_;
+    # ...
+  });
+
+Will call the callback when data is retrieved, instead of emitting the
+L</response> event. C<$args> is optional.
+
+=head2 wait
+
+This is useful if you want to block your code: C<wait()> starts the ioloop and
+runs until L</timeout> or L</finish> is reached.
+
+  my $snmp = Mojo::SNMP->new;
+  $snmp->prepare(...)->wait; # blocks while retrieving data
+  # ... your program continues after the SNMP operations have finished.
+
+=cut
+
+sub wait {
+  my $self   = shift;
+  my $ioloop = $self->ioloop;
+  my $stop;
+
+  $stop = sub {
+    $_[0]->unsubscribe(finish  => $stop);
+    $_[0]->unsubscribe(timeout => $stop);
+    $ioloop->stop;
+    undef $stop;
+  };
+
+  $self->_setup unless $self->{_setup}++;
+  $self->once(finish  => $stop);
+  $self->once(timeout => $stop);
+  $ioloop->start;
+  $self;
+}
+
+for my $method (qw( get get_bulk get_next set walk )) {
+  eval <<"HERE" or die $@;
+    sub $method {
+      my(\$self, \$host) = (shift, shift);
+      my \$args = ref \$_[0] eq 'HASH' ? shift : {};
+      \$self->prepare(\$host, \$args, $method => \@_);
+    }
+    1;
+HERE
+}
+
 sub _calculate_pool_key {
   join '|', map { defined $_[1]->{$_} ? $_[1]->{$_} : '' } qw( hostname version community username );
 }
 
-sub _normalize_version {
-  $_[1] =~ /1/ ? 'v1' : $_[1] =~ /3/ ? 'v3' : 'v2c';
+sub _finish {
+  warn "[SNMP] Finish\n" if DEBUG;
+  $_[0]->emit('finish');
+  $_[0]->{_setup} = 0;
 }
 
 sub _new_session {
@@ -424,6 +409,10 @@ sub _new_session {
   warn "[SNMP] New session $args->{hostname}: ", ($error || 'OK'), "\n" if DEBUG;
   $self->emit(error => "$args->{hostname}: $error") if $error;
   $session;
+}
+
+sub _normalize_version {
+  $_[1] =~ /1/ ? 'v1' : $_[1] =~ /3/ ? 'v3' : 'v2c';
 }
 
 sub _prepare_request {
@@ -469,12 +458,6 @@ sub _prepare_request {
   return $self->{_requests} || '0e0';
 }
 
-sub _finish {
-  warn "[SNMP] Finish\n" if DEBUG;
-  $_[0]->emit('finish');
-  $_[0]->{_setup} = 0;
-}
-
 sub _setup {
   my $self = shift;
   my $timeout = $self->master_timeout or return;
@@ -493,57 +476,70 @@ sub _setup {
   );
 }
 
-=head2 wait
+sub _snmp_method_bulk_walk {
+  my ($session, %args) = @_;
+  my $base_oid       = $args{varbindlist}[0];
+  my $last           = $args{callback};
+  my $maxrepetitions = $args{maxrepetitions} || MAXREPETITIONS;
+  my ($callback, $end, %tree, %types);
 
-This is useful if you want to block your code: C<wait()> starts the ioloop and
-runs until L</timeout> or L</finish> is reached.
-
-  my $snmp = Mojo::SNMP->new;
-  $snmp->prepare(...)->wait; # blocks while retrieving data
-  # ... your program continues after the SNMP operations have finished.
-
-=cut
-
-sub wait {
-  my $self   = shift;
-  my $ioloop = $self->ioloop;
-  my $stop;
-
-  $stop = sub {
-    $_[0]->unsubscribe(finish  => $stop);
-    $_[0]->unsubscribe(timeout => $stop);
-    $ioloop->stop;
-    undef $stop;
+  $end = sub {
+    $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+    $session->$last;
+    $end = $callback = undef;
   };
 
-  $self->_setup unless $self->{_setup}++;
-  $self->once(finish  => $stop);
-  $self->once(timeout => $stop);
-  $ioloop->start;
-  $self;
+  $callback = sub {
+    my ($session) = @_;
+    my $res     = $session->var_bind_list    or return $end->();
+    my @sortres = $session->var_bind_names() or return $end->();
+    my $types   = $session->var_bind_types;
+    my $next    = $sortres[-1];
+
+    for my $oid (@sortres) {
+      return $end->() unless Net::SNMP::oid_base_match($base_oid, $oid);
+      $types{$oid} = $types->{$oid};
+      $tree{$oid}  = $res->{$oid};
+    }
+
+    return $end->() unless $next;
+    return $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$next], callback => $callback);
+  };
+
+  $session->get_bulk_request(maxrepetitions => $maxrepetitions, varbindlist => [$base_oid], callback => $callback);
 }
 
-=head2 add_custom_request_method
+sub _snmp_method_walk {
+  my ($session, %args) = @_;
+  my $base_oid = $args{varbindlist}[0];
+  my $last     = $args{callback};
+  my ($callback, $end, %tree, %types);
 
-  $self->add_custom_request_method(name => sub {
-    my($session, %args) = @_;
-    # do custom stuff..
-  });
+  $end = sub {
+    $session->{_pdu}->var_bind_list(\%tree, \%types) if %tree;
+    $session->$last;
+    $end = $callback = undef;
+  };
 
-This method can be used to add custom L<Net::SNMP> request methods. See the
-source code for an example on how to do "walk".
+  $callback = sub {
+    my ($session) = @_;
+    my $res = $session->var_bind_list or return $end->();
+    my $types = $session->var_bind_types;
+    my @next;
 
-NOTE: This method will also replace any method, meaning the code below will
-call the custom callback instead of L<Net::SNMP/get_next_request>.
+    for my $oid (keys %$res) {
+      if (Net::SNMP::oid_base_match($base_oid, $oid)) {
+        $types{$oid} = $types->{$oid};
+        $tree{$oid}  = $res->{$oid};
+        push @next, $oid;
+      }
+    }
 
-  $self->add_custom_request_method(get_next => $custom_callback);
+    return $end->() unless @next;
+    return $session->get_next_request(varbindlist => \@next, callback => $callback);
+  };
 
-=cut
-
-sub add_custom_request_method {
-  my ($class, $name, $cb) = @_;
-  $SNMP_METHOD{$name} = $cb;
-  $class;
+  $session->get_next_request(varbindlist => [$base_oid], callback => $callback);
 }
 
 =head1 COPYRIGHT & LICENSE
