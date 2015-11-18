@@ -424,14 +424,14 @@ sub _prepare_request {
 
   # dispatch to our mojo based dispatcher
   $Net::SNMP::DISPATCHER = $self->_dispatcher;
-  warn "[Mojo::SNMP] $key $method(@$list)\n" if DEBUG;
 
   unless ($session->transport) {
     warn "[Mojo::SNMP] Open connection...\n" if DEBUG;
     unless ($session->open) {
       Mojo::IOLoop->next_tick(
         sub {
-          $cb ? $self->$cb($session->error, undef) : $self->emit(error => $session->error, $session, $args);
+          return $self->$cb($session->error, undef) if $cb;
+          return $self->emit(error => $session->error, $session, $args);
         },
       );
       return $self->{_requests} || '0e0';
@@ -441,21 +441,26 @@ sub _prepare_request {
   Scalar::Util::weaken($self);
   $method = $SNMP_METHOD{$method} || "$method\_request";
 
+  warn "[Mojo::SNMP] $key $method(@$list)\n" if DEBUG;
   $success = $session->$method(
     $method =~ /bulk/ ? (maxrepetitions => $args->{maxrepetitions} || MAXREPETITIONS) : (),
     ref $method ? (%$args) : (),
     varbindlist => $list,
     callback    => sub {
+      my $session = shift;
+
       eval {
         local @$args{qw( method request )} = @$item[1, 2];
         $self->{_requests}-- if $self->{_requests};
-        if ($_[0]->var_bind_list) {
-          warn "[Mojo::SNMP] <<< $key $method(@$list)\n" if DEBUG;
-          $cb ? $self->$cb('', $_[0]) : $self->emit(response => $_[0], $args);
+        if ($session->var_bind_list) {
+          warn "[Mojo::SNMP] <<< success: $key $method(@$list)\n" if DEBUG;
+          return $self->$cb('', $session) if $cb;
+          return $self->emit(response => $session, $args);
         }
         else {
-          warn "[Mojo::SNMP] <<< $key @{[$_[0]->error]}\n" if DEBUG;
-          $cb ? $self->$cb($_[0]->error, undef) : $self->emit(error => $_[0]->error, $_[0], $args);
+          warn "[Mojo::SNMP] <<< error: $key @{[$session->error]}\n" if DEBUG;
+          return $self->$cb($session->error, undef) if $cb;
+          return $self->emit(error => $session->error, $session, $args);
         }
         1;
       } or do {

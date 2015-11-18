@@ -56,7 +56,7 @@ sub error {
 
   return $self->{error} if @_ == 1;
   $self->{error} = defined $format ? sprintf $format, @args : undef;
-  warn "[Mojo::SNMP::Dispatcher] $self->{error}\n" if DEBUG and defined $format;
+  warn "[Mojo::SNMP::Dispatcher] error: $self->{error}\n" if DEBUG and defined $format;
   return $self;
 }
 
