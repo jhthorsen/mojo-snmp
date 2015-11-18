@@ -235,7 +235,7 @@ sub _transport_response_received {
     warn "[Mojo::SNMP::Dispatcher] Ignoring zero length message\n" if DEBUG;
     return;
   }
-  if (not $mp->prepare_data_elements($msg)) {
+  if (not defined $mp->prepare_data_elements($msg)) {
     $self->error($mp->error);
     return;
   }

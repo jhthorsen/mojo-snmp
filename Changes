@@ -1,5 +1,9 @@
 Revision history for perl distribution Mojo-SNMP
 
+0.11 Not Released
+ - Fix SNMPv3 discovery process #8
+   Contributors: Espen Tallaksen and Lewitzki Andreas
+
 0.10 2014-12-18T17:16:48Z
  - Fix multiple dispatcher objects can't coexist #7
 
