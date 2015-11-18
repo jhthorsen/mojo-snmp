@@ -115,13 +115,8 @@ sub schedule {
 
   warn "[Mojo::SNMP::Dispatcher] Schedule $time $code(@$callback)\n" if DEBUG;
 
-  if ($time) {
-    Scalar::Util::weaken($self);
-    $self->ioloop->timer($time => sub { $self->$code(@$callback) });
-  }
-  else {
-    $self->$code(@$callback);
-  }
+  Scalar::Util::weaken($self);
+  $self->ioloop->timer($time => sub { $self->$code(@$callback) });
 }
 
 =head2 register
