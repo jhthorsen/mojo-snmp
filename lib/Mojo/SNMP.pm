@@ -407,7 +407,7 @@ sub _new_session {
   my ($session, $error) = Net::SNMP->session(%$args, nonblocking => 1);
 
   warn "[SNMP] New session $args->{hostname}: ", ($error || 'OK'), "\n" if DEBUG;
-  $self->emit(error => "$args->{hostname}: $error") if $error;
+  Mojo::IOLoop->next_tick(sub { $self->emit(error => "$args->{hostname}: $error") }) if $error;
   $session;
 }
 
