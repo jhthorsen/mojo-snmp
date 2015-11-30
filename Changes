@@ -1,6 +1,6 @@
 Revision history for perl distribution Mojo-SNMP
 
-0.11 Not Released
+0.11 2015-11-30T14:06:11+0100
  - Fix SNMPv3 discovery process #8
    Contributors: Espen Tallaksen and Lewitzki Andreas
  - Fix infinite bulk_walk and walk

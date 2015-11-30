@@ -2,7 +2,7 @@ NAME
     Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 VERSION
-    0.10
+    0.11
 
 SYNOPSIS
       use Mojo::SNMP;
