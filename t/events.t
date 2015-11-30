@@ -20,11 +20,6 @@ $snmp->on(timeout  => sub { $timeout++ });
 $snmp->prepare('1.2.3.4', {version => '2c'}, get => ['1.3.6.1.2.1.1.4.0']);
 
 memory_cycle_ok($snmp) if TEST_MEMORY;
-is_deeply(
-  $snmp->_queue,
-  [['1.2.3.4|v2c|public|', 'get', ['1.3.6.1.2.1.1.4.0'], {version => '2c'}, undef],],
-  'queue is set up'
-);
 
 no warnings 'redefine';
 *Net::SNMP::get_request = sub { shift; push @request, @_ };

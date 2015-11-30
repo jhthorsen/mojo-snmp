@@ -27,23 +27,19 @@ memory_cycle_ok($snmp) if TEST_MEMORY;
 $snmp->prepare('127.0.0.1', {timeout => 1}, get => ['1.2.42.42'])->wait;
 is $response[0]{'1.2.42.42'}, 'noSuchObject', '1.2.42.42 does not exist';
 
-{
-  local $TODO
-    = 'Seems like response comes back in the wrong order if we schedule get, get, get_next. Not sure if it matters';
-  @response = ();
-  $snmp->prepare(
-    '127.0.0.1', {timeout => 1},
-    get      => [qw( 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 )],
-    get_next => [qw( 1.3.6.1.2.1 )],
-    get      => [qw( 1.3.6.1.2.1.1.4.0 )],
-  )->wait;
+@response = ();
+$snmp->prepare(
+  '127.0.0.1', {timeout => 1},
+  get      => [qw( 1.3.6.1.2.1.1.3.0 1.3.6.1.2.1.1.4.0 )],
+  get      => [qw( 1.3.6.1.2.1.1.4.0 )],
+  get_next => [qw( 1.3.6.1.2.1 )],
+)->wait;
 
-  is $finish, 2, 'finish event was emitted';
-  like $response[0]{'1.3.6.1.2.1.1.3.0'}, qr{\d}, 'get 0 uptime'           or d $response[0];
-  like $response[0]{'1.3.6.1.2.1.1.4.0'}, qr{\w}, 'get 0 contact name'     or d $response[0];
-  like $response[1]{'1.3.6.1.2.1.1.4.0'}, qr{\w}, 'get 1 contact name'     or d $response[1];
-  like $response[2]{'1.3.6.1.2.1.1.1.0'}, qr{\w}, 'get_next 2 system name' or d $response[2];
-}
+is $finish, 2, 'finish event was emitted';
+like $response[0]{'1.3.6.1.2.1.1.3.0'}, qr{\d}, 'get 0 uptime'           or d $response[0];
+like $response[0]{'1.3.6.1.2.1.1.4.0'}, qr{\w}, 'get 0 contact name'     or d $response[0];
+like $response[1]{'1.3.6.1.2.1.1.4.0'}, qr{\w}, 'get 1 contact name'     or d $response[1];
+like $response[2]{'1.3.6.1.2.1.1.1.0'}, qr{\w}, 'get_next 2 system name' or d $response[2];
 
 memory_cycle_ok($snmp) if TEST_MEMORY;
 

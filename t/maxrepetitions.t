@@ -11,7 +11,7 @@ my %args;
   $snmp->prepare('1.2.3.4', {version => '2c', maxrepetitions => 10}, get_bulk => ['1.3.6.1.2.1.1.4.0']);
 
   is_deeply(
-    $snmp->_queue,
+    $snmp->{queue}{'1.2.3.4|v2c||'},
     [['1.2.3.4|v2c||', 'get_bulk', ['1.3.6.1.2.1.1.4.0'], {version => '2c', maxrepetitions => 10}, undef],],
     'queued get_bulk with maxrepetitions',
   );

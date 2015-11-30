@@ -18,29 +18,21 @@ $snmp->on(timeout => sub { $timeout++ });
 $snmp->get('1.2.3.4', {version => '2c'}, ['1.3.6.1.2.1.1.4.0'], \&got_res);
 $snmp->get_next('1.2.3.5' => ['1.3.6.1.2.1.1.6.0'], \&got_res);
 
-is_deeply(
-  $snmp->_queue,
-  [
-    ['1.2.3.4|v2c|public|', 'get', ['1.3.6.1.2.1.1.4.0'], {version => '2c'}, \&got_res],
-    ['1.2.3.5|v2c|public|', 'get_next', ['1.3.6.1.2.1.1.6.0'], {}, \&got_res],
-  ],
-  'queue is set up'
-);
-
 my $net_snmp = Net::SNMP->new(nonblocking => 1);
-my ($guard, @request);
+my ($guard, %request);
 no warnings 'redefine';
-*Net::SNMP::get_next_request = sub { shift; push @request, @_ };
-*Net::SNMP::get_request      = sub { shift; push @request, @_ };
+*Net::SNMP::get_next_request = sub { my $snmp = shift; push @{$request{$snmp->hostname}}, @_ };
+*Net::SNMP::get_request      = sub { my $snmp = shift; push @{$request{$snmp->hostname}}, @_ };
 $net_snmp->{_error}          = 'yikes!';
 
 $snmp->concurrent(2);
 $snmp->prepare('*');
-is $snmp->{_requests}, 2, 'prepared two requests';
-is_deeply $request[1], ['1.3.6.1.2.1.1.4.0'], 'varbindlist was passed on to get_request';
-is ref $request[3], 'CODE', 'callback was passed on to get_request';
-is_deeply $request[5], ['1.3.6.1.2.1.1.6.0'], 'varbindlist was passed on to get_next_request';
-is ref $request[7], 'CODE', 'callback was passed on to get_next_request';
+
+is $snmp->{n_requests}, 2, 'prepared two requests';
+is_deeply $request{'1.2.3.4'}[1], ['1.3.6.1.2.1.1.4.0'], 'varbindlist was passed on to get_request';
+is ref $request{'1.2.3.4'}[3], 'CODE', 'callback was passed on to get_request';
+is_deeply $request{'1.2.3.5'}[1], ['1.3.6.1.2.1.1.6.0'], 'varbindlist was passed on to get_next_request';
+is ref $request{'1.2.3.5'}[3], 'CODE', 'callback was passed on to get_next_request';
 
 done_testing;
 

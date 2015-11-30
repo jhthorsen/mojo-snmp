@@ -186,8 +186,6 @@ has ioloop         => sub { Mojo::IOLoop->singleton };
 # these attributes are experimental and therefore not exposed. Let me know if
 # you use them...
 has _dispatcher => sub { $DISPATCHER ||= Mojo::SNMP::Dispatcher->new(ioloop => shift->ioloop) };
-has _pool       => sub { +{} };
-has _queue      => sub { +[] };
 
 =head1 METHODS
 
@@ -303,7 +301,7 @@ sub prepare {
   my $args  = ref $_[0] eq 'HASH' ? shift : {};
   my %args  = %$args;
 
-  $hosts = [sort keys %{$self->_pool}] if $hosts->[0] and $hosts->[0] eq '*';
+  $hosts = [keys %{$self->{sessions} || {}}] if $hosts->[0] and $hosts->[0] eq '*';
 
   defined $args{$_} or $args{$_} = $self->defaults->{$_} for keys %{$self->defaults};
   $args{version} = $self->_normalize_version($args{version} || '');
@@ -315,18 +313,23 @@ HOST:
     my ($host) = $key =~ /^([^|]+)/;
     local $args{hostname} = $host;
     my $key = $key eq $host ? $self->_calculate_pool_key(\%args) : $key;
-    $self->_pool->{$key} ||= $self->_new_session(\%args) or next HOST;
+    $self->{sessions}{$key} ||= $self->_new_session(\%args) or next HOST;
 
     local @_ = @_;
     while (@_) {
       my $method = shift;
       my $oid = ref $_[0] eq 'ARRAY' ? shift : [shift];
-      push @{$self->_queue}, [$key, $method, $oid, $args, $cb];
+      push @{$self->{queue}{$key}}, [$key, $method, $oid, $args, $cb];
     }
   }
 
-  $self->{_requests} ||= 0;
-  $self->_prepare_request or last for $self->{_requests} .. $self->concurrent - 1;
+  $self->{n_requests} ||= 0;
+
+  for ($self->{n_requests} .. $self->concurrent - 1) {
+    my $queue = $self->_dequeue or last;
+    $self->_prepare_request($queue);
+  }
+
   $self->_setup if !$self->{_setup}++ and $self->ioloop->is_running;
   $self;
 }
@@ -396,6 +399,12 @@ sub _calculate_pool_key {
   join '|', map { defined $_[1]->{$_} ? $_[1]->{$_} : '' } qw( hostname version community username );
 }
 
+sub _dequeue {
+  my $self = shift;
+  my $key = (keys %{$self->{queue} || {}})[0] or return;
+  return delete $self->{queue}{$key};
+}
+
 sub _finish {
   warn "[Mojo::SNMP] Finish\n" if DEBUG;
   $_[0]->emit('finish');
@@ -416,17 +425,23 @@ sub _normalize_version {
 }
 
 sub _prepare_request {
-  my $self = shift;
-  my $item = shift @{$self->_queue} or return;
+  my ($self, $queue) = @_;
+  my $item = shift @$queue;
+
+  unless ($item) {
+    $queue = $self->_dequeue or return;
+    $item = shift @$queue;
+  }
+
   my ($key, $method, $list, $args, $cb) = @$item;
-  my $session = $self->_pool->{$key};
+  my $session = $self->{sessions}{$key};
   my ($error, $success);
 
   # dispatch to our mojo based dispatcher
   $Net::SNMP::DISPATCHER = $self->_dispatcher;
 
   unless ($session->transport) {
-    warn "[Mojo::SNMP] Open connection...\n" if DEBUG;
+    warn "[Mojo::SNMP] <<< open connection\n" if DEBUG;
     unless ($session->open) {
       Mojo::IOLoop->next_tick(
         sub {
@@ -434,11 +449,11 @@ sub _prepare_request {
           return $self->emit(error => $session->error, $session, $args);
         },
       );
-      return $self->{_requests} || '0e0';
+      return $self->{n_requests} || '0e0';
     }
   }
 
-  warn "[Mojo::SNMP] $key $method(@$list)\n" if DEBUG;
+  warn "[Mojo::SNMP] <<< $method $key @$list\n" if DEBUG;
   Scalar::Util::weaken($self);
   $method = $SNMP_METHOD{$method} || "$method\_request";
   $success = $session->$method(
@@ -450,14 +465,14 @@ sub _prepare_request {
 
       eval {
         local @$args{qw( method request )} = @$item[1, 2];
-        $self->{_requests}-- if $self->{_requests};
+        $self->{n_requests}--;
         if ($session->var_bind_list) {
-          warn "[Mojo::SNMP] <<< success: $key $method(@$list)\n" if DEBUG;
+          warn "[Mojo::SNMP] >>> success: $method $key @$list\n" if DEBUG;
           return $self->$cb('', $session) if $cb;
           return $self->emit(response => $session, $args);
         }
         else {
-          warn "[Mojo::SNMP] <<< error: $key @{[$session->error]}\n" if DEBUG;
+          warn "[Mojo::SNMP] >>> error: $method $key @{[$session->error]}\n" if DEBUG;
           return $self->$cb($session->error, undef) if $cb;
           return $self->emit(error => $session->error, $session, $args);
         }
@@ -465,14 +480,16 @@ sub _prepare_request {
       } or do {
         $self->emit(error => $@);
       };
-      $self->_prepare_request;
-      $self->_finish unless $self->_dispatcher->connections;
+      warn "[Mojo::SNMP] n_requests: $self->{n_requests}\n" if DEBUG;
+      $self->_prepare_request($queue);
+      warn "[Mojo::SNMP] n_requests: $self->{n_requests}\n" if DEBUG;
+      $self->_finish unless $self->{n_requests};
     },
   );
 
-  return ++$self->{_requests} if $success;
+  return ++$self->{n_requests} if $success;
   $self->emit(error => $session->error, $session);
-  return $self->{_requests} || '0e0';
+  return $self->{n_requests} || '0e0';
 }
 
 sub _setup {
