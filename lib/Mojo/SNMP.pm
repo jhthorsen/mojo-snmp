@@ -354,6 +354,16 @@ L</response> event. C<$args> is optional.
 Will call the callback when data is retrieved, instead of emitting the
 L</response> event. C<$args> is optional.
 
+=head2 bulk_walk
+
+  $self->bulk_walk($host, $args, \@oids, sub {
+    my($self, $err, $res) = @_;
+    # ...
+  });
+
+Will call the callback when data is retrieved, instead of emitting the
+L</response> event. C<$args> is optional.
+
 =head2 wait
 
 This is useful if you want to block your code: C<wait()> starts the ioloop and
@@ -384,7 +394,7 @@ sub wait {
   $self;
 }
 
-for my $method (qw( get get_bulk get_next set walk )) {
+for my $method (qw( get get_bulk get_next set walk bulk_walk )) {
   eval <<"HERE" or die $@;
     sub $method {
       my(\$self, \$host) = (shift, shift);
