@@ -518,7 +518,13 @@ sub _snmp_method_bulk_walk {
   my ($callback, $end, %tree, %types);
 
   $end = sub {
-    $session->pdu->var_bind_list(\%tree, \%types) if %tree;
+    if (scalar keys %tree) {
+      $session->pdu->var_bind_list(\%tree, \%types);
+    }
+    else {
+      $session->pdu->var_bind_list({$base_oid => 'noSuchInstance'},
+                                   {$base_oid => $Net::SNMP::NOSUCHINSTANCE});
+    }
     $session->$last;
     $end = $callback = undef;
   };
