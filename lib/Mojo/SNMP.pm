@@ -522,8 +522,8 @@ sub _snmp_method_bulk_walk {
       $session->pdu->var_bind_list(\%tree, \%types);
     }
     else {
-      $session->pdu->var_bind_list({$base_oid => 'noSuchInstance'},
-                                   {$base_oid => $Net::SNMP::NOSUCHINSTANCE});
+      $session->pdu->var_bind_list({$base_oid => 'noSuchObject'},
+                                   {$base_oid => Net::SNMP::NOSUCHOBJECT});
     }
     $session->$last;
     $end = $callback = undef;
