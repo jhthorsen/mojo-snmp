@@ -2,7 +2,7 @@ NAME
     Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 VERSION
-    0.11
+    0.12
 
 SYNOPSIS
       use Mojo::SNMP;
@@ -237,6 +237,15 @@ METHODS
     Will call the callback when data is retrieved, instead of emitting the
     "response" event. $args is optional.
 
+  bulk_walk
+      $self->bulk_walk($host, $args, \@oids, sub {
+        my($self, $err, $res) = @_;
+        # ...
+      });
+
+    Will call the callback when data is retrieved, instead of emitting the
+    "response" event. $args is optional.
+
   wait
     This is useful if you want to block your code: "wait()" starts the
     ioloop and runs until "timeout" or "finish" is reached.
@@ -245,14 +254,21 @@ METHODS
       $snmp->prepare(...)->wait; # blocks while retrieving data
       # ... your program continues after the SNMP operations have finished.
 
-COPYRIGHT & LICENSE
-    This library is free software. You can redistribute it and/or modify it
-    under the same terms as Perl itself.
-
 AUTHOR
     Jan Henning Thorsen - "jhthorsen@cpan.org"
 
-    Joshua Keroes - "joshua@cpan.org"
+CONTRIBUTORS
+    Espen Tallaksen - "espen.tallaksen@telenor.com"
 
-    Espen Tallaksen
+    Joshua Keroes - "joshua.keroes@integratelecom.com"
+
+    Oliver Gorwits - "oliver@cpan.org"
+
+    Per Carlson - "per.carlson@broadnet.no"
+
+COPYRIGHT & LICENSE
+    Copyright (C) 2012-2016, "AUTHOR" and "CONTRIBUTORS".
+
+    This library is free software. You can redistribute it and/or modify it
+    under the same terms as Perl itself.
 
