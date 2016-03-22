@@ -584,17 +584,25 @@ runs until L</timeout> or L</finish> is reached.
   $snmp->prepare(...)->wait; # blocks while retrieving data
   # ... your program continues after the SNMP operations have finished.
 
-=head1 COPYRIGHT & LICENSE
-
-This library is free software. You can redistribute it and/or modify
-it under the same terms as Perl itself.
-
 =head1 AUTHOR
 
 Jan Henning Thorsen - C<jhthorsen@cpan.org>
 
-Joshua Keroes - C<joshua@cpan.org>
+=head1 CONTRIBUTORS
 
-Espen Tallaksen
+Espen Tallaksen - C<espen.tallaksen@telenor.com>
+
+Joshua Keroes - C<joshua.keroes@integratelecom.com>
+
+Oliver Gorwits - C<oliver@cpan.org>
+
+Per Carlson - C<per.carlson@broadnet.no>
+
+=head1 COPYRIGHT & LICENSE
+
+Copyright (C) 2012-2016, L</AUTHOR> and L</CONTRIBUTORS>.
+
+This library is free software. You can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
