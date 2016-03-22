@@ -1,16 +1,4 @@
 package Mojo::SNMP::Dispatcher;
-
-=head1 NAME
-
-Mojo::SNMP::Dispatcher - Instead of Net::SNMP::Dispatcher
-
-=head1 DESCRIPTION
-
-This module works better with L<Mojo::IOLoop> since it register the
-L<IO::Socket::INET> sockets in with the mojo reactor.
-
-=cut
-
 use Errno;
 use Mojo::Base -base;
 use Mojo::IOLoop::Stream;
@@ -19,35 +7,9 @@ use Net::SNMP::Message qw( TRUE FALSE );
 use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
 
-=head1 ATTRIBUTES
-
-=head2 ioloop
-
-Holds a L<Mojo::IOLoop> object. Same as L<Mojo::SNMP/ioloop>.
-
-=head2 message_processing
-
-Holds an instance of L<Net::SNMP::MessageProcessing>.
-
-=head2 debug
-
-Does nothing. Use C<MOJO_SNMP_DEBUG=1> instead to get debug information.
-
-=head2 error
-
-Holds the last error.
-
-=cut
-
 has ioloop             => sub { Mojo::IOLoop->singleton };
 has message_processing => sub { Net::SNMP::MessageProcessing->instance };
 has debug => 0;    # Use MOJO_SNMP_DEBUG=1 instead
-
-=head2 connections
-
-Holds the number of active sockets.
-
-=cut
 
 sub connections { int values %{$_[0]->{descriptors}} }
 
@@ -59,14 +21,6 @@ sub error {
   warn "[Mojo::SNMP::Dispatcher] error: $self->{error}\n" if DEBUG and defined $format;
   return $self;
 }
-
-=head1 METHODS
-
-=head2 send_pdu
-
-This method will send a PDU to the SNMP server.
-
-=cut
 
 sub send_pdu {
   my ($self, $pdu, $delay) = @_;
@@ -82,32 +36,13 @@ sub send_pdu {
   return TRUE;
 }
 
-=head2 return_response_pdu
-
-No idea what this does (?)
-
-=cut
-
 sub return_response_pdu {
   $_[0]->send_pdu($_[1], -1);
 }
 
-=head2 msg_handle_alloc
-
-No idea what this does (?)
-
-=cut
-
 sub msg_handle_alloc {
   $_[0]->message_processing->msg_handle_alloc;
 }
-
-=head2 schedule
-
-Used to schedule events at a given time. Use L<Mojo::IOLoop/timer> to
-do the heavy lifting.
-
-=cut
 
 sub schedule {
   my ($self, $time, $callback) = @_;
@@ -118,12 +53,6 @@ sub schedule {
   Scalar::Util::weaken($self);
   $self->ioloop->timer($time => sub { $self->$code(@$callback) });
 }
-
-=head2 register
-
-Register a new transport object with L<Mojo::IOLoop::Reactor>.
-
-=cut
 
 sub register {
   my ($self, $transport) = @_;
@@ -151,12 +80,6 @@ sub register {
   warn "[Mojo::SNMP::Dispatcher] Add handler for descriptor $fileno\n" if DEBUG;
   return $transport;
 }
-
-=head2 deregister
-
-The opposite of L</register>.
-
-=cut
 
 sub deregister {
   my ($self, $transport) = @_;
@@ -249,6 +172,68 @@ sub _transport_response_received {
   $msg->process_response_pdu;
 }
 
+1;
+
+=encoding utf8
+
+=head1 NAME
+
+Mojo::SNMP::Dispatcher - Instead of Net::SNMP::Dispatcher
+
+=head1 DESCRIPTION
+
+This module works better with L<Mojo::IOLoop> since it register the
+L<IO::Socket::INET> sockets in with the mojo reactor.
+
+=head1 ATTRIBUTES
+
+=head2 ioloop
+
+Holds a L<Mojo::IOLoop> object. Same as L<Mojo::SNMP/ioloop>.
+
+=head2 message_processing
+
+Holds an instance of L<Net::SNMP::MessageProcessing>.
+
+=head2 debug
+
+Does nothing. Use C<MOJO_SNMP_DEBUG=1> instead to get debug information.
+
+=head2 error
+
+Holds the last error.
+
+=head2 connections
+
+Holds the number of active sockets.
+
+=head1 METHODS
+
+=head2 send_pdu
+
+This method will send a PDU to the SNMP server.
+
+=head2 return_response_pdu
+
+No idea what this does (?)
+
+=head2 msg_handle_alloc
+
+No idea what this does (?)
+
+=head2 schedule
+
+Used to schedule events at a given time. Use L<Mojo::IOLoop/timer> to
+do the heavy lifting.
+
+=head2 register
+
+Register a new transport object with L<Mojo::IOLoop::Reactor>.
+
+=head2 deregister
+
+The opposite of L</register>.
+
 =head1 COPYRIGHT & LICENSE
 
 This library is free software. You can redistribute it and/or modify
@@ -259,5 +244,3 @@ it under the same terms as Perl itself.
 Jan Henning Thorsen - C<jhthorsen@cpan.org>
 
 =cut
-
-1;
