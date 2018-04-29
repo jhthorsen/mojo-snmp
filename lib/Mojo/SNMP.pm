@@ -533,7 +533,7 @@ this method.
   $self = $self->prepare($host, \%args, ...);
   $self = $self->prepare(\@hosts, \%args, ...);
   $self = $self->prepare(\@hosts, ...);
-  $self = $self->prepare('*' => ...);
+  $self = $self->prepare("*" => ...);
 
 =over 4
 
@@ -569,18 +569,18 @@ defined hosts.
 
 Examples:
 
-  $self->prepare('192.168.0.1' => {version => 'v2c'}, get_next => [$oid, ...]);
-  $self->prepare('192.168.0.1' => {version => 'v3'}, get => [$oid, ...]);
+  $self->prepare("192.168.0.1" => {version => "v2c"}, get_next => [$oid, ...]);
+  $self->prepare("192.168.0.1" => {version => "v3"}, get => [$oid, ...]);
   $self->prepare(localhost => set => [$oid => OCTET_STRING, $value, ...]);
-  $self->prepare('*' => get => [$oid, ...]);
+  $self->prepare("*" => get => [$oid, ...]);
 
 Note: To get the C<OCTET_STRING> constant and friends you need to do:
 
-  use Net::SNMP ':asn1';
+  use Net::SNMP ":asn1";
 
 =head2 set
 
-  use Net::SNMP; # Export OCTET_STRING
+  use Net::SNMP ":asn1"; # Export OCTET_STRING
 
   $self->set($host, $args => [$oid, OCTET_STRING, $value, ...], sub {
     my ($self, $err, $session) = @_;
@@ -604,11 +604,13 @@ This is a custom SNMP method added by L</add_custom_request_method>. See
 L</prepare> for generic information about the variables associated with this
 method.
 
-This method will run C<Net::SNMP/get_next_request> until an oid retrieved does
+This method will run L<Net::SNMP/get_next_request> until an oid retrieved does
 not match the base OID, or if the tree is exhausted. You might want to use
 L</bulk_walk> instead for better performance.
 
 =head2 wait
+
+  $self->wait;
 
 This is useful if you want to block your code: C<wait()> starts the ioloop and
 runs until L</timeout> or L</finish> is reached.
