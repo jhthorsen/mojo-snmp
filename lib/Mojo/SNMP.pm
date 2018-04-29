@@ -181,18 +181,17 @@ sub _prepare_request {
         $self->{n_requests}--;
         if ($session->var_bind_list) {
           warn "[Mojo::SNMP] >>> success: $method $key @$list\n" if DEBUG;
-          return $self->$cb('', $session) if $cb;
-          return $self->emit(response => $session, $args);
+          $cb ? $self->$cb('', $session) : $self->emit(response => $session, $args);
         }
         else {
           warn "[Mojo::SNMP] >>> error: $method $key @{[$session->error]}\n" if DEBUG;
-          return $self->$cb($session->error, undef) if $cb;
-          return $self->emit(error => $session->error, $session, $args);
+          $cb ? $self->$cb($session->error, $session) : $self->emit(error => $session->error, $session, $args);
         }
         1;
       } or do {
         $self->emit(error => $@);
       };
+
       warn "[Mojo::SNMP] n_requests: $self->{n_requests}\n" if DEBUG;
       $self->_prepare_request($queue);
       warn "[Mojo::SNMP] n_requests: $self->{n_requests}\n" if DEBUG;
