@@ -7,7 +7,7 @@ use Scalar::Util ();
 use constant DEBUG => $ENV{MOJO_SNMP_DEBUG} ? 1 : 0;
 use constant MAXREPETITIONS => 10;
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 my $DISPATCHER;
 my @EXCLUDE_METHOD_ARGS = qw(maxrepetitions);
@@ -303,7 +303,7 @@ Mojo::SNMP - Run SNMP requests with Mojo::IOLoop
 
 =head1 VERSION
 
-0.12
+0.13
 
 =head1 SYNOPSIS
 
