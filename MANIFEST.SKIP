@@ -5,7 +5,6 @@
 ~$
 ^blib/
 ^Makefile$
-^MANIFEST.*
 ^Mojo-SNMP
 ^local.*
 ^cover_db.*
