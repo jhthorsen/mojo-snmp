@@ -352,8 +352,8 @@ SNMP agents. The module does its best to not get in your way, but rather
 provide a simple API which allow you to extract information from multiple
 servers at the same time.
 
-This module use L<Net::SNMP> and L<Mojo::IOLoop> to fetch data from hosts
-asynchronous. It does this by using a custom dispatcher,
+This module uses L<Net::SNMP> and L<Mojo::IOLoop> to fetch data from hosts
+asynchronously. It does this by using a custom dispatcher,
 L<Mojo::SNMP::Dispatcher>, which attach the sockets created by L<Net::SNMP>
 directly into the ioloop reactor.
 
@@ -369,28 +369,23 @@ do cool stuff inside my web server.
 
 =head2 error
 
-  $self->on(error => sub {
-    my ($self, $str, $session, $args) = @_;
-  });
+  $self->on(error => sub { my ($self, $str, $session, $args) = @_; ... });
 
-Emitted on errors which may occur. C<$session> is set if the error is a result
-of a L<Net::SNMP> method, such as L<get_request()|Net::SNMP/get_request>.
+Emitted on errors which may occur. C<$session> is a L<Net::SNMP> object and is
+only available if the error is a result of a L<Net::SNMP> method, such as
+L<get_request()|Net::SNMP/get_request>.
 
 See L</response> for C<$args> description.
 
 =head2 finish
 
-  $self->on(finish => sub {
-    my $self = shift;
-  });
+  $self->on(finish => sub { my $self = shift; ... });
 
 Emitted when all requests have completed.
 
 =head2 response
 
-  $self->on(response => sub {
-    my ($self, $session, $args) = @_;
-  });
+  $self->on(response => sub { my ($self, $session, $args) = @_; ... });
 
 Called each time a host responds. The C<$session> is the current L<Net::SNMP>
 object. C<$args> is a hash ref with the arguments given to L</prepare>, with
@@ -404,9 +399,7 @@ some additional information:
 
 =head2 timeout
 
-  $self->on(timeout => sub {
-    my $self = shift;
-  })
+  $self->on(timeout => sub { my $self = shift; ... })
 
 Emitted if L</wait> has been running for more than L</master_timeout> seconds.
 
@@ -439,6 +432,10 @@ NOTE: SNMP version will default to "v2c".
 
 How long to run in total before timeout. Note: This is NOT per host but for
 the complete run. Default is 0, which means that it will never time out.
+
+If you want to set a timeout per request request to a host, then this need
+to be set in L</defaults> or in C<$args> passed on to L</prepare> or one of
+the other request methods.
 
 =head2 ioloop
 
@@ -613,7 +610,7 @@ L</bulk_walk> instead for better performance.
   $self->wait;
 
 This is useful if you want to block your code: C<wait()> starts the ioloop and
-runs until L</timeout> or L</finish> is reached.
+runs until L</master_timeout> or L</finish> is reached.
 
   my $snmp = Mojo::SNMP->new;
   $snmp->prepare(...)->wait; # blocks while retrieving data
